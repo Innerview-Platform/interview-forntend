@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { GlassCard } from "@/components/ui/GlassCard";
@@ -44,6 +45,7 @@ function GoogleIcon() {
 }
 
 export function SignupForm() {
+  const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -67,13 +69,13 @@ export function SignupForm() {
     }
     setLoading(true);
     try {
-      const res = await apiRegister({
+      await apiRegister({
         name: name.trim(),
         email,
         password,
         password_confirmation: confirm,
       });
-      setInfo(res.message);
+      router.replace(`${siteConfig.routes.login}?registered=1`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Sign-up failed.");
     } finally {

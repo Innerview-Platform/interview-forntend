@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { GlassCard } from "@/components/ui/GlassCard";
@@ -9,20 +10,21 @@ import { apiLogin } from "@/lib/auth-api";
 import { siteConfig } from "@/lib/site-config";
 
 export function LoginForm() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const justRegistered = searchParams.get("registered") === "1";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    setSuccess(null);
     setLoading(true);
     try {
-      const res = await apiLogin(email, password);
-      setSuccess(res.message);
+      await apiLogin(email, password);
+      router.replace(siteConfig.routes.dashboard);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Sign-in failed.");
     } finally {
@@ -40,6 +42,11 @@ export function LoginForm() {
           {siteConfig.name}
         </Link>
         <p className="mt-2 text-muted">Welcome back</p>
+        {justRegistered ? (
+          <p className="mt-3 rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-sm text-foreground">
+            Account created. Sign in with your email and password.
+          </p>
+        ) : null}
       </div>
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
         <Input
@@ -73,11 +80,6 @@ export function LoginForm() {
         {error ? (
           <p className="text-sm text-red-400" role="alert">
             {error}
-          </p>
-        ) : null}
-        {success ? (
-          <p className="text-sm text-accent" role="status">
-            {success}
           </p>
         ) : null}
         <Button type="submit" disabled={loading} className="w-full">

@@ -42,8 +42,14 @@ export function ForgotPasswordForm() {
           Reset your password
         </h1>
         <p className="mt-2 text-sm text-muted">
-          Enter your email. If an account exists, you&apos;ll receive reset
-          instructions.
+          Enter your email. If an account exists, you&apos;ll receive a link to{" "}
+          <Link
+            href={siteConfig.routes.resetPassword}
+            className="text-accent hover:underline"
+          >
+            reset your password
+          </Link>{" "}
+          on this site.
         </p>
       </div>
       {success ? (

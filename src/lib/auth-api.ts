@@ -1,6 +1,20 @@
 import { API_BASE_URL } from "@/lib/api-config";
 
 const ACCESS_TOKEN_KEY = "innerview_access_token";
+const USER_KEY = "innerview_user";
+
+/** Dispatched on window after login, logout, refresh, or session clear. */
+export const INNERVIEW_AUTH_CHANGED_EVENT = "innerview-auth-changed";
+
+function notifyAuthChanged(): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(INNERVIEW_AUTH_CHANGED_EVENT));
+}
+
+export type StoredUser = {
+  id: string;
+  email: string;
+};
 
 export function getStoredAccessToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -13,16 +27,49 @@ export function setStoredAccessToken(token: string | null): void {
   else localStorage.removeItem(ACCESS_TOKEN_KEY);
 }
 
+export function getStoredUser(): StoredUser | null {
+  if (typeof window === "undefined") return null;
+  const raw = localStorage.getItem(USER_KEY);
+  if (!raw) return null;
+  try {
+    const data = JSON.parse(raw) as StoredUser;
+    if (data && typeof data.id === "string" && typeof data.email === "string") {
+      return data;
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
+export function setStoredUser(user: StoredUser | null): void {
+  if (typeof window === "undefined") return;
+  if (user) localStorage.setItem(USER_KEY, JSON.stringify(user));
+  else localStorage.removeItem(USER_KEY);
+}
+
+export function clearClientSession(): void {
+  setStoredAccessToken(null);
+  setStoredUser(null);
+  notifyAuthChanged();
+}
+
 async function readErrorMessage(res: Response): Promise<string> {
   try {
-    const data: unknown = await res.json();
-    if (
-      data &&
-      typeof data === "object" &&
-      "error" in data &&
-      typeof (data as { error: unknown }).error === "string"
-    ) {
-      return (data as { error: string }).error;
+    const ct = res.headers.get("content-type") ?? "";
+    if (ct.includes("application/json")) {
+      const data: unknown = await res.json();
+      if (
+        data &&
+        typeof data === "object" &&
+        "error" in data &&
+        typeof (data as { error: unknown }).error === "string"
+      ) {
+        return (data as { error: string }).error;
+      }
+    } else {
+      const text = await res.text();
+      if (text) return text.slice(0, 200);
     }
   } catch {
     /* ignore */
@@ -59,10 +106,15 @@ export async function apiLogin(
   if (accessToken) setStoredAccessToken(accessToken);
 
   const body = (await res.json()) as { id?: string; email?: string };
+  const id = body.id ?? "";
+  const emailOut = body.email ?? "";
+  setStoredUser({ id, email: emailOut });
+  notifyAuthChanged();
+
   return {
     ok: true,
-    id: body.id ?? "",
-    email: body.email ?? "",
+    id,
+    email: emailOut,
     message: "Signed in.",
   };
 }
@@ -117,6 +169,102 @@ export async function apiForgotPassword(
       body.message ??
       "If an account with this email exists, a reset link has been sent.",
   };
+}
+
+export async function apiResetPassword(payload: {
+  token: string;
+  new_password: string;
+  new_password_confirm: string;
+}): Promise<{ ok: true; message: string }> {
+  const res = await fetch(`${API_BASE_URL}/api/auth/reset-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      token: payload.token.trim(),
+      new_password: payload.new_password,
+      new_password_confirm: payload.new_password_confirm,
+    }),
+    credentials: "include",
+  });
+
+  if (!res.ok) {
+    throw new Error(await readErrorMessage(res));
+  }
+
+  const body = (await res.json()) as { message?: string };
+  return {
+    ok: true,
+    message: body.message ?? "Password has been reset successfully.",
+  };
+}
+
+export async function apiRefresh(refreshToken: string): Promise<{
+  access_token: string;
+  refresh_token: string;
+}> {
+  const res = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ refreshToken }),
+    credentials: "include",
+  });
+
+  if (!res.ok) {
+    throw new Error(await readErrorMessage(res));
+  }
+
+  const body = (await res.json()) as {
+    access_token?: string;
+    refresh_token?: string;
+  };
+  if (!body.access_token || !body.refresh_token) {
+    throw new Error("Invalid refresh response");
+  }
+  setStoredAccessToken(body.access_token);
+  notifyAuthChanged();
+  return {
+    access_token: body.access_token,
+    refresh_token: body.refresh_token,
+  };
+}
+
+export async function apiLogout(): Promise<void> {
+  const token = getStoredAccessToken();
+  if (!token) {
+    clearClientSession();
+    return;
+  }
+
+  const res = await fetch(`${API_BASE_URL}/api/auth/logout`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    credentials: "include",
+  });
+
+  if (!res.ok) {
+    throw new Error(await readErrorMessage(res));
+  }
+
+  clearClientSession();
+}
+
+/** GET /api/auth/dashboard-test — OpenAPI; backend currently expects OAuth2 session, not JWT. */
+export async function apiDashboardTest(): Promise<{
+  ok: boolean;
+  status: number;
+  body: string;
+}> {
+  const token = getStoredAccessToken();
+  const res = await fetch(`${API_BASE_URL}/api/auth/dashboard-test`, {
+    method: "GET",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    credentials: "include",
+  });
+  const body = await res.text();
+  return { ok: res.ok, status: res.status, body };
 }
 
 /** Full navigation so the browser can complete OAuth2 and cookies. */
