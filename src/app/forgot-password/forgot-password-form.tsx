@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Input } from "@/components/ui/Input";
-import { mockRequestPasswordReset } from "@/lib/mock-auth";
+import { apiForgotPassword } from "@/lib/auth-api";
 import { siteConfig } from "@/lib/site-config";
 
 export function ForgotPasswordForm() {
@@ -20,10 +20,10 @@ export function ForgotPasswordForm() {
     setSuccess(false);
     setLoading(true);
     try {
-      await mockRequestPasswordReset(email);
+      await apiForgotPassword(email);
       setSuccess(true);
-    } catch {
-      setError("Something went wrong (mock).");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Request failed.");
     } finally {
       setLoading(false);
     }
@@ -42,16 +42,16 @@ export function ForgotPasswordForm() {
           Reset your password
         </h1>
         <p className="mt-2 text-sm text-muted">
-          Enter your email and we&apos;ll send reset instructions (mock - no
-          email is sent).
+          Enter your email. If an account exists, you&apos;ll receive reset
+          instructions.
         </p>
       </div>
       {success ? (
         <div className="rounded-xl border border-accent/30 bg-accent/10 p-4 text-center text-sm text-foreground">
           <p className="font-medium text-accent">Check your inbox</p>
           <p className="mt-2 text-muted">
-            If an account exists for that address, you&apos;d receive a link.
-            This demo only simulates success.
+            If an account exists for that address, check your inbox for the
+            link.
           </p>
           <Link
             href={siteConfig.routes.login}
