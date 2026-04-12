@@ -245,7 +245,16 @@ export async function apiLogout(): Promise<void> {
   });
 
   if (!res.ok) {
-    throw new Error(await readErrorMessage(res));
+    const msg = await readErrorMessage(res);
+    // If refresh cookie was never set (wrong path / old sessions), still sign out locally.
+    if (
+      res.status === 400 &&
+      msg.toLowerCase().includes("refresh token cookie")
+    ) {
+      clearClientSession();
+      return;
+    }
+    throw new Error(msg);
   }
 
   clearClientSession();
