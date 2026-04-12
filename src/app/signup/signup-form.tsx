@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Input } from "@/components/ui/Input";
 import { OAuthButton } from "@/components/ui/OAuthButton";
-import { mockOAuth, mockSignup } from "@/lib/mock-auth";
+import { apiRegister, navigateToGoogleLogin } from "@/lib/auth-api";
 import { siteConfig } from "@/lib/site-config";
 
 function GitHubIcon() {
@@ -44,6 +45,7 @@ function GoogleIcon() {
 }
 
 export function SignupForm() {
+  const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -61,29 +63,40 @@ export function SignupForm() {
       setError("Passwords do not match.");
       return;
     }
+    if (name.trim().length < 3) {
+      setError("Name must be at least 3 characters.");
+      return;
+    }
     setLoading(true);
     try {
-      const res = await mockSignup({ name: name || undefined, email, password });
-      setInfo(res.message);
-    } catch {
-      setError("Something went wrong (mock).");
+      await apiRegister({
+        name: name.trim(),
+        email,
+        password,
+        password_confirmation: confirm,
+      });
+      try {
+        sessionStorage.setItem("innerview_registered_ok", "1");
+      } catch {
+        /* ignore */
+      }
+      router.replace(siteConfig.routes.login);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Sign-up failed.");
     } finally {
       setLoading(false);
     }
   }
 
-  async function handleOAuth(provider: "google" | "github") {
+  function handleOAuth(provider: "google" | "github") {
     setError(null);
     setInfo(null);
-    setOauthLoading(provider);
-    try {
-      const res = await mockOAuth(provider);
-      setInfo(res.message);
-    } catch {
-      setError("OAuth mock failed.");
-    } finally {
-      setOauthLoading(null);
+    if (provider === "github") {
+      setError("GitHub sign-in is not available on the API yet.");
+      return;
     }
+    setOauthLoading("google");
+    navigateToGoogleLogin();
   }
 
   return (
@@ -121,9 +134,11 @@ export function SignupForm() {
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
         <Input
           id="signup-name"
-          label="Name (optional)"
+          label="Name"
           type="text"
           autoComplete="name"
+          required
+          minLength={3}
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Jane Doe"
