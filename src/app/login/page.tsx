@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
 import { LoginForm } from "./login-form";
 
 export const metadata: Metadata = {
@@ -9,9 +8,7 @@ export const metadata: Metadata = {
 export default function LoginPage() {
   return (
     <div className="flex flex-1 items-center justify-center px-4 py-16">
-      <Suspense fallback={<p className="text-sm text-muted">Loading…</p>}>
-        <LoginForm />
-      </Suspense>
+      <LoginForm />
     </div>
   );
 }

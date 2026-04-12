@@ -75,7 +75,12 @@ export function SignupForm() {
         password,
         password_confirmation: confirm,
       });
-      router.replace(`${siteConfig.routes.login}?registered=1`);
+      try {
+        sessionStorage.setItem("innerview_registered_ok", "1");
+      } catch {
+        /* ignore */
+      }
+      router.replace(siteConfig.routes.login);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Sign-up failed.");
     } finally {

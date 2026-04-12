@@ -21,11 +21,13 @@ export function DashboardView() {
   const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
-    if (!getStoredAccessToken()) {
+    const token = getStoredAccessToken();
+    const profile = getStoredUser();
+    if (!token || !profile?.id) {
       router.replace(siteConfig.routes.login);
       return;
     }
-    setUser(getStoredUser());
+    setUser(profile);
 
     let cancelled = false;
     void (async () => {
@@ -63,8 +65,15 @@ export function DashboardView() {
     }
   }
 
-  if (!user && typeof window !== "undefined" && !getStoredAccessToken()) {
-    return null;
+  if (
+    typeof window !== "undefined" &&
+    (!getStoredAccessToken() || !getStoredUser()?.id)
+  ) {
+    return (
+      <div className="flex flex-1 items-center justify-center px-4 py-16 text-sm text-muted">
+        Redirecting to sign in…
+      </div>
+    );
   }
 
   return (
