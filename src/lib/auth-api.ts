@@ -260,22 +260,6 @@ export async function apiLogout(): Promise<void> {
   clearClientSession();
 }
 
-/** GET /api/auth/dashboard-test — OpenAPI; backend currently expects OAuth2 session, not JWT. */
-export async function apiDashboardTest(): Promise<{
-  ok: boolean;
-  status: number;
-  body: string;
-}> {
-  const token = getStoredAccessToken();
-  const res = await fetch(`${API_BASE_URL}/api/auth/dashboard-test`, {
-    method: "GET",
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-    credentials: "include",
-  });
-  const body = await res.text();
-  return { ok: res.ok, status: res.status, body };
-}
-
 /** Full navigation so the browser can complete OAuth2 and cookies. */
 export function navigateToGoogleLogin(): void {
   window.location.href = `${API_BASE_URL}/api/auth/google/login`;

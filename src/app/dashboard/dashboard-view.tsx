@@ -6,7 +6,6 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { GlassCard } from "@/components/ui/GlassCard";
 import {
-  apiDashboardTest,
   apiLogout,
   getStoredAccessToken,
   getStoredUser,
@@ -16,7 +15,6 @@ import { siteConfig } from "@/lib/site-config";
 export function DashboardView() {
   const router = useRouter();
   const [user, setUser] = useState(() => getStoredUser());
-  const [probe, setProbe] = useState<string | null>(null);
   const [logoutError, setLogoutError] = useState<string | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
 
@@ -28,28 +26,6 @@ export function DashboardView() {
       return;
     }
     setUser(profile);
-
-    let cancelled = false;
-    void (async () => {
-      try {
-        const r = await apiDashboardTest();
-        if (cancelled) return;
-        if (r.ok) {
-          setProbe(r.body);
-        } else {
-          setProbe(
-            `HTTP ${r.status} — ${r.body || "(empty)"}\n` +
-              "Note: this endpoint is intended for OAuth2 sessions; JWT sign-in may receive 401.",
-          );
-        }
-      } catch {
-        if (!cancelled) setProbe("Could not reach dashboard-test.");
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
   }, [router]);
 
   async function handleLogout() {
@@ -77,14 +53,18 @@ export function DashboardView() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-4 py-16">
+    <div className="mx-auto flex w-full max-w-2xl flex-col px-4 py-16">
       <GlassCard className="p-8 sm:p-10">
         <p className="text-sm font-medium uppercase tracking-wider text-muted">
-          Your profile
+          Account
         </p>
         <h1 className="mt-2 text-2xl font-semibold text-foreground">
           Welcome back
         </h1>
+        <p className="mt-3 text-sm text-muted">
+          You&apos;re signed in. Details below are from your session after the
+          last successful login.
+        </p>
         {user ? (
           <dl className="mt-8 space-y-4 text-sm">
             <div>
@@ -99,7 +79,7 @@ export function DashboardView() {
             </div>
           </dl>
         ) : (
-          <p className="mt-6 text-sm text-muted">Loading profile…</p>
+          <p className="mt-6 text-sm text-muted">Loading…</p>
         )}
 
         <div className="mt-10 flex flex-wrap gap-3">
@@ -123,15 +103,6 @@ export function DashboardView() {
             {logoutError}
           </p>
         ) : null}
-      </GlassCard>
-
-      <GlassCard className="p-6 sm:p-8">
-        <p className="text-xs font-medium uppercase tracking-wider text-muted">
-          API · GET /api/auth/dashboard-test
-        </p>
-        <pre className="mt-4 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-white/10 bg-black/30 p-4 text-xs text-foreground/85">
-          {probe ?? "Loading…"}
-        </pre>
       </GlassCard>
     </div>
   );
