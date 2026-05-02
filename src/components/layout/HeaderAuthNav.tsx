@@ -23,12 +23,20 @@ export function HeaderAuthNav() {
 
   if (authed) {
     return (
-      <Link
-        href={siteConfig.routes.dashboard}
-        className="hidden text-sm text-white/85 transition hover:text-foreground sm:inline"
-      >
-        Dashboard
-      </Link>
+      <span className="hidden items-center gap-4 sm:inline-flex">
+        <Link
+          href={siteConfig.routes.dashboard}
+          className="text-sm text-white/85 transition hover:text-foreground"
+        >
+          Dashboard
+        </Link>
+        <Link
+          href={siteConfig.routes.profile}
+          className="text-sm text-white/85 transition hover:text-foreground"
+        >
+          Profile
+        </Link>
+      </span>
     );
   }
 

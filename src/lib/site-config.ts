@@ -14,5 +14,6 @@ export const siteConfig = {
     forgotPassword: "/forgot-password",
     resetPassword: "/reset-password",
     dashboard: "/dashboard",
+    profile: "/profile",
   },
 } as const;
