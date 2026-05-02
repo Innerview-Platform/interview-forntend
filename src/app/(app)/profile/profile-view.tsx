@@ -25,9 +25,9 @@ import {
   apiGetRating,
   apiListAllLanguages,
   apiListMyLanguages,
+  apiPatchProfilePhotoUrl,
   apiRemoveMyLanguage,
   apiUpdateProfile,
-  apiUploadProfileImage,
   EXPERIENCE_LEVELS,
   type ExperienceLevel,
   type FeedbackItem,
@@ -168,9 +168,9 @@ export function ProfileView() {
     try {
       const [r, iv, fin, fout] = await Promise.all([
         apiGetRating(uid),
-        apiGetInterviews(uid, { page: 0, size: 20 }),
-        apiGetFeedbackReceived(uid, { page: 0, size: 20 }),
-        apiGetFeedbackGiven(uid, { page: 0, size: 20 }),
+        apiGetInterviews(uid, { page: 0, limit: 20 }),
+        apiGetFeedbackReceived(uid, { page: 0, limit: 20 }),
+        apiGetFeedbackGiven(uid, { page: 0, limit: 20 }),
       ]);
       setRating(r);
       setInterviews(iv);
@@ -291,9 +291,22 @@ export function ProfileView() {
     setSaving(true);
     setError(null);
     try {
-      const p = await apiUploadProfileImage(file);
-      setProfile(p);
-      setImageUrl(p.image_url ?? "");
+      const photoUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const r = reader.result;
+          if (typeof r === "string") resolve(r);
+          else reject(new Error("Could not read image"));
+        };
+        reader.onerror = () => reject(new Error("Could not read image"));
+        reader.readAsDataURL(file);
+      });
+      await apiPatchProfilePhotoUrl(photoUrl);
+      const p = await apiGetProfile();
+      if (p) {
+        setProfile(p);
+        setImageUrl(p.image_url ?? "");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
     } finally {
@@ -303,12 +316,11 @@ export function ProfileView() {
   }
 
   async function handleAddLanguage() {
-    const id = Number.parseInt(selectedLangId, 10);
-    if (!Number.isFinite(id)) return;
+    if (!selectedLangId.trim()) return;
     setLangBusy(true);
     setError(null);
     try {
-      await apiAddMyLanguage(id);
+      await apiAddMyLanguage(selectedLangId);
       await refreshLanguages();
       setSelectedLangId("");
     } catch (e) {
@@ -334,7 +346,7 @@ export function ProfileView() {
     }
   }
 
-  async function handleRemoveLanguage(id: number) {
+  async function handleRemoveLanguage(id: string) {
     setLangBusy(true);
     setError(null);
     try {

@@ -22,7 +22,7 @@ type Props = {
   onNewLangName: (v: string) => void;
   onCreateLanguage: () => void;
   langBusy: boolean;
-  onRemoveLanguage: (id: number) => void;
+  onRemoveLanguage: (id: string) => void;
 };
 
 export function SkillsSection({

@@ -9,7 +9,7 @@ export function Hero() {
       <div className="mx-auto max-w-3xl text-center">
         <p className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs font-medium uppercase tracking-wider text-accent shadow-[0_0_24px_rgba(192,132,252,0.2)] backdrop-blur">
           <Sparkles className="size-3.5" aria-hidden />
-          New - AI feedback v2.0
+          Profiles, skills, and structured practice
         </p>
         <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl lg:text-6xl">
           Interview with{" "}
@@ -18,9 +18,10 @@ export function Hero() {
           </span>
         </h1>
         <p className="mt-6 text-lg leading-relaxed text-muted">
-          The premium mock interview platform for developers. Practice live
-          coding, system design, and behavioral rounds with AI-assisted feedback
-          in a calm, glass-dark workspace.
+          A mock interview workspace for developers: build your profile, tag your
+          stacks, track feedback and interview history, and sign in securely
+          (including Google). Live video and shared coding sessions are planned
+          — we&apos;re focusing on a solid profile and auth experience first.
         </p>
         <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
           <Button asChild className="w-full min-w-[200px] sm:w-auto">
@@ -29,7 +30,7 @@ export function Hero() {
           <Button variant="outline" asChild className="w-full sm:w-auto">
             <Link href="#features" className="inline-flex items-center gap-2">
               <Play className="size-4 fill-current" aria-hidden />
-              Watch demo
+              See what&apos;s included
             </Link>
           </Button>
         </div>

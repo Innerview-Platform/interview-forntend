@@ -27,11 +27,10 @@ export type ProfileDto = {
   bio: string | null;
   image_url: string | null;
   created_at: string;
-  updated_at: string;
 };
 
 export type ProgrammingLanguageDto = {
-  id: number;
+  id: string;
   name: string;
 };
 
@@ -150,17 +149,15 @@ export async function apiDeleteProfile(): Promise<void> {
   if (!res.ok) throw new Error(await readErrorMessage(res));
 }
 
-export async function apiUploadProfileImage(file: File): Promise<ProfileDto> {
-  const fd = new FormData();
-  fd.append("image", file);
+/** Backend PATCH /api/profile/image expects JSON { photoUrl } (UpdateImageRequest). */
+export async function apiPatchProfilePhotoUrl(photoUrl: string): Promise<void> {
   const res = await fetch(`${apiPrefix()}/api/profile/image`, {
     method: "PATCH",
     credentials: "include",
-    headers: authHeaders(),
-    body: fd,
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify({ photoUrl }),
   });
   if (!res.ok) throw new Error(await readErrorMessage(res));
-  return (await res.json()) as ProfileDto;
 }
 
 export async function apiListMyLanguages(): Promise<ProgrammingLanguageDto[]> {
@@ -172,7 +169,7 @@ export async function apiListMyLanguages(): Promise<ProgrammingLanguageDto[]> {
   return (await res.json()) as ProgrammingLanguageDto[];
 }
 
-export async function apiAddMyLanguage(languageId: number): Promise<void> {
+export async function apiAddMyLanguage(languageId: string): Promise<void> {
   const res = await fetch(`${apiPrefix()}/api/profile/languages`, {
     method: "POST",
     credentials: "include",
@@ -182,7 +179,7 @@ export async function apiAddMyLanguage(languageId: number): Promise<void> {
   if (!res.ok) throw new Error(await readErrorMessage(res));
 }
 
-export async function apiRemoveMyLanguage(languageId: number): Promise<void> {
+export async function apiRemoveMyLanguage(languageId: string): Promise<void> {
   const res = await fetch(`${apiPrefix()}/api/profile/languages/${languageId}`, {
     method: "DELETE",
     credentials: "include",
@@ -212,7 +209,7 @@ export async function apiCreateLanguage(name: string): Promise<ProgrammingLangua
 }
 
 export async function apiGetRating(userId: string): Promise<UserRatingDto> {
-  const res = await fetch(`${apiPrefix()}/api/users/${userId}/rating`, {
+  const res = await fetch(`${apiPrefix()}/api/profile/${userId}/rating`, {
     credentials: "include",
     headers: authHeaders(),
   });
@@ -220,18 +217,19 @@ export async function apiGetRating(userId: string): Promise<UserRatingDto> {
   return (await res.json()) as UserRatingDto;
 }
 
+/** Backend query: page, limit (not size). */
 export async function apiGetInterviews(
   userId: string,
-  params?: { type?: string; status?: string; page?: number; size?: number },
+  params?: { type?: string; status?: string; page?: number; limit?: number },
 ): Promise<SpringPage<InterviewHistoryItem>> {
   const sp = new URLSearchParams();
   if (params?.type) sp.set("type", params.type);
   if (params?.status) sp.set("status", params.status);
   if (params?.page !== undefined) sp.set("page", String(params.page));
-  if (params?.size !== undefined) sp.set("size", String(params.size));
+  if (params?.limit !== undefined) sp.set("limit", String(params.limit));
   const q = sp.toString();
   const res = await fetch(
-    `${apiPrefix()}/api/users/${userId}/interviews${q ? `?${q}` : ""}`,
+    `${apiPrefix()}/api/profile/${userId}/interviews${q ? `?${q}` : ""}`,
     { credentials: "include", headers: authHeaders() },
   );
   if (!res.ok) throw new Error(await readErrorMessage(res));
@@ -240,15 +238,15 @@ export async function apiGetInterviews(
 
 export async function apiGetFeedbackReceived(
   userId: string,
-  params?: { rating?: number; page?: number; size?: number },
+  params?: { rating?: number; page?: number; limit?: number },
 ): Promise<SpringPage<FeedbackItem>> {
   const sp = new URLSearchParams();
   if (params?.rating !== undefined) sp.set("rating", String(params.rating));
   if (params?.page !== undefined) sp.set("page", String(params.page));
-  if (params?.size !== undefined) sp.set("size", String(params.size));
+  if (params?.limit !== undefined) sp.set("limit", String(params.limit));
   const q = sp.toString();
   const res = await fetch(
-    `${apiPrefix()}/api/users/${userId}/feedback${q ? `?${q}` : ""}`,
+    `${apiPrefix()}/api/profile/${userId}/feedback${q ? `?${q}` : ""}`,
     { credentials: "include", headers: authHeaders() },
   );
   if (!res.ok) throw new Error(await readErrorMessage(res));
@@ -257,15 +255,14 @@ export async function apiGetFeedbackReceived(
 
 export async function apiGetFeedbackGiven(
   userId: string,
-  params?: { rating?: number; page?: number; size?: number },
+  params?: { page?: number; limit?: number },
 ): Promise<SpringPage<FeedbackItem>> {
   const sp = new URLSearchParams();
-  if (params?.rating !== undefined) sp.set("rating", String(params.rating));
   if (params?.page !== undefined) sp.set("page", String(params.page));
-  if (params?.size !== undefined) sp.set("size", String(params.size));
+  if (params?.limit !== undefined) sp.set("limit", String(params.limit));
   const q = sp.toString();
   const res = await fetch(
-    `${apiPrefix()}/api/users/${userId}/feedback/given${q ? `?${q}` : ""}`,
+    `${apiPrefix()}/api/profile/${userId}/feedback/given${q ? `?${q}` : ""}`,
     { credentials: "include", headers: authHeaders() },
   );
   if (!res.ok) throw new Error(await readErrorMessage(res));

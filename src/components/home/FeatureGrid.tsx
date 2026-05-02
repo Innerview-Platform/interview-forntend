@@ -1,36 +1,31 @@
-import { GitBranch, Sparkles, Workflow } from "lucide-react";
+import { Shield, Sparkles, UserRound, Workflow } from "lucide-react";
 import { GlassCard } from "@/components/ui/GlassCard";
 
 export function FeatureGrid() {
   return (
     <section id="features" className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
       <h2 className="mx-auto mb-12 max-w-2xl text-center text-3xl font-bold tracking-tight sm:text-4xl">
-        Precision practice for{" "}
-        <span className="text-accent">precision interviews.</span>
+        Built for{" "}
+        <span className="text-accent">how you prep today.</span>
       </h2>
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 lg:grid-rows-2">
         <GlassCard className="relative overflow-hidden p-6 lg:col-span-2 lg:row-span-2 lg:p-8">
           <div className="mb-4 flex items-center gap-3">
             <span className="flex size-10 items-center justify-center rounded-full bg-accent/20 text-accent">
-              <GitBranch className="size-5" aria-hidden />
+              <UserRound className="size-5" aria-hidden />
             </span>
-            <h3 className="text-lg font-semibold">Live code sessions</h3>
+            <h3 className="text-lg font-semibold">Developer profile</h3>
           </div>
           <p className="mb-6 text-muted">
-            Pair with a mentor or bot in a shared IDE with syntax highlight and
-            run history.
+            Experience level, preferred interview role, bio, and photo URL line
+            up with the InnerView API so recruiters and peers see a consistent
+            story.
           </p>
-          <div className="rounded-xl border border-white/10 bg-black/40 p-4 font-mono text-xs leading-relaxed text-muted sm:text-sm">
-            <span className="text-accent">{`// AI Copilot`}</span>
-            {"\n"}
-            <span className="text-white/90">function optimizeRoute(graph) {"{"}</span>
-            {"\n"}
-            {"  "}
-            <span className="text-white/70">
-              {`// Consider memoizing visited nodes for O(V+E)`}
-            </span>
-            {"\n"}
-            {"}"}
+          <div className="rounded-xl border border-white/10 bg-black/40 p-4 text-sm leading-relaxed text-muted">
+            <p className="font-mono text-xs text-accent/90">GET /api/profile</p>
+            <p className="mt-2 text-white/85">
+              Same fields you edit in the app — synced from the backend.
+            </p>
           </div>
         </GlassCard>
         <GlassCard className="p-6 lg:col-span-2">
@@ -39,38 +34,35 @@ export function FeatureGrid() {
               <Sparkles className="size-6" aria-hidden />
             </span>
             <div>
-              <h3 className="text-lg font-semibold">AI copilot</h3>
+              <h3 className="text-lg font-semibold">Skills &amp; languages</h3>
               <p className="mt-2 text-sm text-muted">
-                Real-time hints on complexity, edge cases, and communication -
-                without spoiling the answer.
+                Curate languages from the shared catalog, add new tags when
+                needed, and keep your stack list aligned with{" "}
+                <code className="rounded bg-white/10 px-1 text-xs">
+                  /api/profile/languages
+                </code>
+                .
               </p>
             </div>
           </div>
         </GlassCard>
         <GlassCard className="p-6">
           <Workflow className="mb-3 size-8 text-accent" aria-hidden />
-          <h3 className="text-lg font-semibold">System design</h3>
+          <h3 className="text-lg font-semibold">History &amp; feedback</h3>
           <p className="mt-2 text-sm text-muted">
-            Infinite canvas for components, data flows, and tradeoffs.
+            Interview history and feedback endpoints power your dashboard stats
+            and recent reviews as the API evolves.
           </p>
         </GlassCard>
         <GlassCard className="p-6">
           <div className="mb-3 flex items-center gap-2">
-            <div className="flex -space-x-2">
-              {[1, 2, 3].map((i) => (
-                <div
-                  key={i}
-                  className="size-8 rounded-full border-2 border-[#0b0815] bg-gradient-to-br from-accent/80 to-accent-violet"
-                />
-              ))}
-            </div>
-            <span className="rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-xs font-medium text-accent">
-              +5k
-            </span>
+            <Shield className="size-8 text-accent" aria-hidden />
           </div>
-          <h3 className="text-lg font-semibold">Peer network</h3>
+          <h3 className="text-lg font-semibold">Secure sign-in</h3>
           <p className="mt-2 text-sm text-muted">
-            Match with interviewers and peers worldwide. +5k sessions weekly.
+            Email and password, Google OAuth, refresh cookies on{" "}
+            <code className="rounded bg-white/10 px-1 text-xs">/api/auth</code>
+            , and JWT access for protected routes.
           </p>
         </GlassCard>
       </div>

@@ -1,3 +1,4 @@
+import path from "node:path";
 import type { NextConfig } from "next";
 
 /**
@@ -7,7 +8,26 @@ import type { NextConfig } from "next";
  */
 const BACKEND_ORIGIN = process.env.BACKEND_ORIGIN ?? "http://localhost:8080";
 
+/** Single resolution for yjs (avoids "Yjs was already imported" with Turbopack / split chunks). */
+const yjsRoot = path.join(process.cwd(), "node_modules", "yjs");
+
 const nextConfig: NextConfig = {
+  /** Consistent CJS/ESM handling for the CRDT package. */
+  transpilePackages: ["yjs"],
+  turbopack: {
+    /** Relative path only — Turbopack does not resolve absolute Windows paths for aliases yet. */
+    resolveAlias: {
+      yjs: "./node_modules/yjs",
+    },
+  },
+  webpack: (config) => {
+    config.resolve = config.resolve ?? {};
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      yjs: yjsRoot,
+    };
+    return config;
+  },
   async rewrites() {
     return [
       {
@@ -23,16 +43,20 @@ const nextConfig: NextConfig = {
         destination: `${BACKEND_ORIGIN}/api/profile/:path*`,
       },
       {
-        source: "/api/users/:path*",
-        destination: `${BACKEND_ORIGIN}/api/users/:path*`,
-      },
-      {
         source: "/api/programming-languages",
         destination: `${BACKEND_ORIGIN}/api/programming-languages`,
       },
       {
         source: "/api/programming-languages/:path*",
         destination: `${BACKEND_ORIGIN}/api/programming-languages/:path*`,
+      },
+      {
+        source: "/api/rooms/:path*",
+        destination: `${BACKEND_ORIGIN}/api/rooms/:path*`,
+      },
+      {
+        source: "/api/interviews/:path*",
+        destination: `${BACKEND_ORIGIN}/api/interviews/:path*`,
       },
       {
         source: "/uploads/:path*",
