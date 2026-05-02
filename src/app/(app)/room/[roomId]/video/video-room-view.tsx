@@ -1,14 +1,18 @@
 "use client";
 
 import { useRouter, useParams } from "next/navigation";
-import { Video, Mic, MicOff, VideoOff, PhoneOff, Loader2 } from "lucide-react";
 import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from "react";
+  Loader2,
+  Mic,
+  MicOff,
+  MonitorUp,
+  PhoneOff,
+  Square,
+  Video,
+  VideoOff,
+} from "lucide-react";
+import { useCallback, useEffect, useRef } from "react";
+import { useSyncExternalStore } from "react";
 import { GlassCard } from "@/components/ui/GlassCard";
 import {
   getClientSessionSnapshot,
@@ -17,7 +21,7 @@ import {
 } from "@/lib/client-session";
 import { siteConfig } from "@/lib/site-config";
 import { useRoomSession } from "@/app/(app)/room/[roomId]/room-session-context";
-import { useRoomWebRtc } from "@/hooks/useRoomWebRtc";
+import { useRoomMedia } from "@/app/(app)/room/[roomId]/room-media-context";
 
 export function VideoRoomView() {
   const router = useRouter();
@@ -35,34 +39,51 @@ export function VideoRoomView() {
     getServerClientSessionSnapshot,
   );
 
+  const { wsState, joinError, webrtcSelfRole } = useRoomSession();
+  const media = useRoomMedia();
+
+  const stageRef = useRef<HTMLVideoElement>(null);
+
   const {
-    wsState,
-    joinError,
-    addRoomTopicListener,
-    publishSignaling,
-    webrtcSelfRole,
-  } = useRoomSession();
-
-  const [displayName, setDisplayName] = useState("");
-  const [audioOn, setAudioOn] = useState(true);
-  const [videoOn, setVideoOn] = useState(true);
-  const [preJoinDone, setPreJoinDone] = useState(false);
-  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
-  const [mediaError, setMediaError] = useState<string | null>(null);
-
-  const localVideoRef = useRef<HTMLVideoElement | null>(null);
-  const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
-
-  const { remoteStream, rtcState, rtcError, hangUp } = useRoomWebRtc({
-    roomId,
-    userId: user?.id ?? "",
-    wsConnected: wsState === "connected",
-    webrtcSelfRole,
-    addRoomTopicListener,
-    publishSignaling,
     localStream,
-    callActive: preJoinDone && !!localStream,
-  });
+    localScreenStream,
+    remoteStream,
+    remoteScreenStream,
+    preJoinDone,
+    audioOn,
+    videoOn,
+    rtcState,
+    rtcError,
+    mediaError,
+    startPreview,
+    joinCall,
+    hangUp,
+    toggleAudio,
+    toggleVideo,
+    startScreenShare,
+    stopScreenShare,
+    screenSharing,
+    leaveRoomToDashboard,
+  } = media;
+
+  const bindStage = useCallback(() => {
+    const el = stageRef.current;
+    if (!el) return;
+    if (localScreenStream) {
+      el.srcObject = localScreenStream;
+    } else if (remoteScreenStream) {
+      el.srcObject = remoteScreenStream;
+    } else if (remoteStream) {
+      el.srcObject = remoteStream;
+    } else {
+      el.srcObject = null;
+    }
+    void el.play().catch(() => {});
+  }, [localScreenStream, remoteScreenStream, remoteStream]);
+
+  useEffect(() => {
+    bindStage();
+  }, [bindStage]);
 
   useEffect(() => {
     if (!token || !user?.id) {
@@ -70,87 +91,9 @@ export function VideoRoomView() {
     }
   }, [router, token, user?.id]);
 
-  useEffect(() => {
-    if (user?.email && !displayName) {
-      const short = user.email.split("@")[0] ?? user.email;
-      setDisplayName(short);
-    }
-  }, [user?.email, displayName]);
-
-  useEffect(() => {
-    const el = localVideoRef.current;
-    if (!el || !localStream) return;
-    el.srcObject = localStream;
-    void el.play().catch(() => {});
-  }, [localStream]);
-
-  useEffect(() => {
-    const el = remoteVideoRef.current;
-    if (!el || !remoteStream) return;
-    el.srcObject = remoteStream;
-    void el.play().catch(() => {});
-  }, [remoteStream]);
-
-  const startPreview = useCallback(async () => {
-    setMediaError(null);
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: videoOn,
-        audio: audioOn,
-      });
-      setLocalStream((prev) => {
-        prev?.getTracks().forEach((t) => t.stop());
-        return stream;
-      });
-    } catch (e) {
-      setMediaError(
-        e instanceof Error ? e.message : "Could not access camera or microphone",
-      );
-    }
-  }, [audioOn, videoOn]);
-
-  const handleJoinCall = useCallback(async () => {
-    await startPreview();
-    setPreJoinDone(true);
-  }, [startPreview]);
-
-  const toggleAudio = useCallback(() => {
-    setAudioOn((a) => {
-      const next = !a;
-      localStream?.getAudioTracks().forEach((t) => {
-        t.enabled = next;
-      });
-      return next;
-    });
-  }, [localStream]);
-
-  const toggleVideo = useCallback(() => {
-    setVideoOn((v) => {
-      const next = !v;
-      localStream?.getVideoTracks().forEach((t) => {
-        t.enabled = next;
-      });
-      return next;
-    });
-  }, [localStream]);
-
-  useEffect(() => {
-    if (!localStream) return;
-    localStream.getAudioTracks().forEach((t) => (t.enabled = audioOn));
-    localStream.getVideoTracks().forEach((t) => (t.enabled = videoOn));
-  }, [audioOn, videoOn, localStream]);
-
-  const onLeave = useCallback(() => {
-    hangUp();
-    localStream?.getTracks().forEach((t) => t.stop());
-    setLocalStream(null);
-    setPreJoinDone(false);
-    router.push(siteConfig.routes.dashboard);
-  }, [hangUp, localStream, router]);
-
   if (!roomId) {
     return (
-      <div className="flex flex-1 items-center justify-center px-4 py-16 text-sm text-muted">
+      <div className="flex flex-1 items-center justify-center text-sm text-muted">
         Invalid room…
       </div>
     );
@@ -158,8 +101,8 @@ export function VideoRoomView() {
 
   if (!token || !user?.id) {
     return (
-      <div className="flex flex-1 items-center justify-center px-4 py-16 text-sm text-muted">
-        Redirecting to sign in…
+      <div className="flex flex-1 items-center justify-center text-sm text-muted">
+        Redirecting…
       </div>
     );
   }
@@ -171,70 +114,55 @@ export function VideoRoomView() {
         ? "Connecting…"
         : "Offline";
 
+  const stageLabel = localScreenStream
+    ? "Your screen"
+    : remoteScreenStream
+      ? "Peer screen"
+      : remoteStream
+        ? "Peer video"
+        : rtcState === "connecting"
+          ? "Connecting…"
+          : "Waiting for peer…";
+
   return (
-    <div>
-      <div className="mb-6 flex flex-wrap items-start gap-4">
-        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-sky-500/15 text-sky-300">
-          <Video className="h-6 w-6" />
-        </span>
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted">
-            Live video (P2P)
-          </p>
-          <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted">
-            Signaling uses the same STOMP session as the editor (
-            <span className="font-mono text-foreground/80">{wsLabel}</span>
-            ). Media is peer‑to‑peer with a public STUN server; expect NAT‑dependent
-            behavior on some networks.
-          </p>
-        </div>
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
+      <div className="shrink-0">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted">
+          Video · STOMP signaling ({wsLabel})
+          {webrtcSelfRole ? ` · ${webrtcSelfRole}` : ""}
+        </p>
       </div>
 
       {joinError ? (
-        <GlassCard className="mb-6 border-red-500/25 p-4 text-sm text-red-200">
+        <GlassCard className="border-red-500/25 p-4 text-sm text-red-200">
           {joinError}
         </GlassCard>
       ) : null}
 
       {!preJoinDone ? (
-        <GlassCard className="space-y-6 p-6 sm:p-8">
+        <GlassCard className="space-y-5 p-6">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted">
-              Before you join
-            </p>
-            <h2 className="mt-2 text-lg font-semibold text-foreground">
+            <h2 className="text-lg font-semibold text-foreground">
               Camera & microphone
             </h2>
             <p className="mt-2 text-sm text-muted">
-              Choose how you appear in the call. You can change devices after
-              joining from browser settings if needed.
+              Preview devices, then join. Video tiles also appear in the
+              floating dock after you join.
             </p>
           </div>
-
-          <label className="block text-sm">
-            <span className="mb-1 block text-muted">Display name (optional)</span>
-            <input
-              type="text"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              className="w-full max-w-md rounded-xl border border-white/15 bg-black/30 px-4 py-2.5 text-sm text-foreground"
-              placeholder="Your name"
-            />
-          </label>
-
           <div className="flex flex-wrap gap-3">
             <button
               type="button"
               onClick={() => void startPreview()}
-              className="rounded-xl border border-white/20 px-4 py-2.5 text-sm font-medium text-foreground hover:bg-white/5"
+              className="rounded-xl border border-white/20 px-4 py-2.5 text-sm font-medium hover:bg-white/5"
             >
               Preview devices
             </button>
             <button
               type="button"
-              onClick={() => void handleJoinCall()}
+              onClick={() => void joinCall()}
               disabled={wsState !== "connected"}
-              className="inline-flex items-center gap-2 rounded-xl bg-sky-600/90 px-5 py-2.5 text-sm font-semibold text-white shadow transition hover:bg-sky-500 disabled:opacity-40"
+              className="inline-flex items-center gap-2 rounded-xl bg-teal-600/90 px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
             >
               {wsState !== "connected" ? (
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
@@ -242,108 +170,111 @@ export function VideoRoomView() {
               Join call
             </button>
           </div>
-
           {mediaError ? (
             <p className="text-sm text-red-300">{mediaError}</p>
           ) : null}
-
-          <div className="overflow-hidden rounded-xl border border-white/10 bg-black/40">
+          <div className="overflow-hidden rounded-xl border border-white/10 bg-black/50">
             <video
-              ref={localVideoRef}
               className="aspect-video w-full object-cover"
               muted
               playsInline
               autoPlay
+              ref={(el) => {
+                if (el && localStream) el.srcObject = localStream;
+              }}
             />
           </div>
         </GlassCard>
       ) : (
-        <div className="space-y-6">
-          <GlassCard className="overflow-hidden p-0">
-            <div className="grid gap-px bg-white/10 sm:grid-cols-2">
-              <div className="relative aspect-video bg-black/50">
-                <video
-                  ref={remoteVideoRef}
-                  className="h-full w-full object-cover"
-                  playsInline
-                  autoPlay
-                />
-                {!remoteStream ? (
-                  <div className="absolute inset-0 flex items-center justify-center text-sm text-muted">
-                    {rtcState === "connecting"
-                      ? "Waiting for peer…"
-                      : "No remote video yet"}
-                  </div>
-                ) : null}
-                <span className="absolute bottom-3 left-3 rounded-lg bg-black/60 px-2 py-1 text-xs text-white">
-                  Remote
-                </span>
-              </div>
-              <div className="relative aspect-video bg-black/50">
-                <video
-                  ref={localVideoRef}
-                  className="h-full w-full object-cover"
-                  muted
-                  playsInline
-                  autoPlay
-                />
-                <span className="absolute bottom-3 left-3 rounded-lg bg-black/60 px-2 py-1 text-xs text-white">
-                  You
-                  {webrtcSelfRole ? ` · ${webrtcSelfRole}` : ""}
-                </span>
-              </div>
+        <>
+          <div className="relative min-h-0 flex-1 overflow-hidden rounded-xl border border-white/10 bg-black/60">
+            <video
+              ref={stageRef}
+              className="h-full max-h-[min(72vh,720px)] w-full object-contain"
+              playsInline
+              autoPlay
+              muted={!!localScreenStream}
+            />
+            <div className="pointer-events-none absolute bottom-3 left-3 rounded-lg bg-black/65 px-2 py-1 text-[11px] text-white">
+              {stageLabel}
             </div>
+          </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 bg-black/25 px-4 py-3">
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={toggleAudio}
-                  className={`inline-flex h-10 w-10 items-center justify-center rounded-xl border text-white transition ${
-                    audioOn
-                      ? "border-white/20 bg-white/10"
-                      : "border-red-400/40 bg-red-500/30"
-                  }`}
-                  aria-label={audioOn ? "Mute" : "Unmute"}
-                >
-                  {audioOn ? (
-                    <Mic className="h-5 w-5" />
-                  ) : (
-                    <MicOff className="h-5 w-5" />
-                  )}
-                </button>
-                <button
-                  type="button"
-                  onClick={toggleVideo}
-                  className={`inline-flex h-10 w-10 items-center justify-center rounded-xl border text-white transition ${
-                    videoOn
-                      ? "border-white/20 bg-white/10"
-                      : "border-amber-400/40 bg-amber-500/25"
-                  }`}
-                  aria-label={videoOn ? "Camera off" : "Camera on"}
-                >
-                  {videoOn ? (
-                    <Video className="h-5 w-5" />
-                  ) : (
-                    <VideoOff className="h-5 w-5" />
-                  )}
-                </button>
-                <button
-                  type="button"
-                  onClick={onLeave}
-                  className="inline-flex h-10 items-center gap-2 rounded-xl border border-red-400/40 bg-red-500/20 px-4 text-sm font-medium text-red-100"
-                >
-                  <PhoneOff className="h-4 w-4" />
-                  Leave
-                </button>
-              </div>
-              <div className="font-mono text-xs text-muted">
-                RTC: {rtcState}
-                {rtcError ? ` · ${rtcError}` : ""}
-              </div>
-            </div>
-          </GlassCard>
-        </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={toggleAudio}
+              className={`inline-flex h-11 w-11 items-center justify-center rounded-xl border ${
+                audioOn
+                  ? "border-white/20 bg-white/10"
+                  : "border-red-400/40 bg-red-500/25"
+              }`}
+              aria-label={audioOn ? "Mute" : "Unmute"}
+            >
+              {audioOn ? (
+                <Mic className="h-5 w-5" />
+              ) : (
+                <MicOff className="h-5 w-5" />
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={toggleVideo}
+              className={`inline-flex h-11 w-11 items-center justify-center rounded-xl border ${
+                videoOn
+                  ? "border-white/20 bg-white/10"
+                  : "border-amber-400/40 bg-amber-500/25"
+              }`}
+              aria-label={videoOn ? "Camera off" : "Camera on"}
+            >
+              {videoOn ? (
+                <Video className="h-5 w-5" />
+              ) : (
+                <VideoOff className="h-5 w-5" />
+              )}
+            </button>
+            {screenSharing ? (
+              <button
+                type="button"
+                onClick={stopScreenShare}
+                className="inline-flex items-center gap-2 rounded-xl border border-amber-400/40 bg-amber-500/20 px-4 py-2 text-sm text-amber-100"
+              >
+                <Square className="h-4 w-4" />
+                Stop share
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => void startScreenShare()}
+                className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-sm"
+              >
+                <MonitorUp className="h-4 w-4" />
+                Share screen
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                hangUp();
+              }}
+              className="inline-flex items-center gap-2 rounded-xl border border-white/15 px-4 py-2 text-sm text-muted hover:bg-white/5"
+            >
+              Disconnect AV
+            </button>
+            <button
+              type="button"
+              onClick={leaveRoomToDashboard}
+              className="inline-flex items-center gap-2 rounded-xl border border-red-400/40 bg-red-500/15 px-4 py-2 text-sm text-red-100"
+            >
+              <PhoneOff className="h-4 w-4" />
+              Leave room
+            </button>
+            <span className="ml-auto font-mono text-[11px] text-muted">
+              RTC {rtcState}
+              {rtcError ? ` · ${rtcError}` : ""}
+            </span>
+          </div>
+        </>
       )}
     </div>
   );

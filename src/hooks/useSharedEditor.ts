@@ -52,6 +52,8 @@ export type UseSharedEditorReturn = {
   /** Subscribe to `/topic/room/{roomId}/cursors`. */
   addCursorListener: (fn: (msg: RemoteCursorState) => void) => () => void;
   publishSignaling: (type: string, payload?: unknown) => void;
+  /** Shared Y.Text for Monaco `MonacoBinding`; null until STOMP connected and Yjs initialized. */
+  getSharedYText: () => Y.Text | null;
 };
 
 function computeDelta(
@@ -482,6 +484,10 @@ export function useSharedEditor({
     });
   }, []);
 
+  const getSharedYText = useCallback((): Y.Text | null => {
+    return ytextRef.current;
+  }, []);
+
   useEffect(() => () => disconnect(), [disconnect]);
 
   return {
@@ -502,5 +508,6 @@ export function useSharedEditor({
     addRoomTopicListener,
     addCursorListener,
     publishSignaling,
+    getSharedYText,
   };
 }

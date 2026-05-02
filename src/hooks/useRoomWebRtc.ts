@@ -38,21 +38,33 @@ function payloadIce(
   return init;
 }
 
+function isScreenVideoTrack(track: MediaStreamTrack): boolean {
+  const label = (track.label ?? "").toLowerCase();
+  return (
+    label.includes("screen") ||
+    label.includes("display") ||
+    label.includes("window") ||
+    label.includes("monitor")
+  );
+}
+
 export type UseRoomWebRtcOptions = {
   roomId: string;
   userId: string;
   wsConnected: boolean;
-  /** From STOMP; stable across tab switches when you joined before Video. */
   webrtcSelfRole: "polite" | "impolite" | null;
   addRoomTopicListener: (fn: (msg: RoomSignalMessage) => void) => () => void;
   publishSignaling: (type: string, payload?: unknown) => void;
   localStream: MediaStream | null;
-  /** True after user confirms PreJoin (camera/mic). */
+  /** Optional screen-capture stream (adds a second video sender when present). */
+  localScreenStream: MediaStream | null;
   callActive: boolean;
 };
 
 export type UseRoomWebRtcReturn = {
+  /** Remote camera + mic (non-screen video tracks). */
   remoteStream: MediaStream | null;
+  remoteScreenStream: MediaStream | null;
   rtcState: "idle" | "connecting" | "live" | "error";
   rtcError: string | null;
   hangUp: () => void;
@@ -66,15 +78,19 @@ export function useRoomWebRtc({
   addRoomTopicListener,
   publishSignaling,
   localStream,
+  localScreenStream,
   callActive,
 }: UseRoomWebRtcOptions): UseRoomWebRtcReturn {
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+  const [remoteScreenStream, setRemoteScreenStream] =
+    useState<MediaStream | null>(null);
   const [rtcState, setRtcState] = useState<
     "idle" | "connecting" | "live" | "error"
   >("idle");
   const [rtcError, setRtcError] = useState<string | null>(null);
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
+  const screenSenderRef = useRef<RTCRtpSender | null>(null);
   const makingOfferRef = useRef(false);
   const ignoreOfferRef = useRef(false);
   const politeRef = useRef(false);
@@ -90,6 +106,7 @@ export function useRoomWebRtc({
   const closePeer = useCallback(() => {
     makingOfferRef.current = false;
     ignoreOfferRef.current = false;
+    screenSenderRef.current = null;
     if (pcRef.current) {
       pcRef.current.ontrack = null;
       pcRef.current.onicecandidate = null;
@@ -98,6 +115,7 @@ export function useRoomWebRtc({
       pcRef.current = null;
     }
     setRemoteStream(null);
+    setRemoteScreenStream(null);
     setRtcState("idle");
   }, []);
 
@@ -121,12 +139,23 @@ export function useRoomWebRtc({
       };
 
       pc.ontrack = (ev) => {
-        const [rs] = ev.streams;
-        if (rs) setRemoteStream(rs);
+        const t = ev.track;
+        if (t.kind === "video" && isScreenVideoTrack(t)) {
+          setRemoteScreenStream(new MediaStream([t]));
+          setRtcState("live");
+          return;
+        }
+        setRemoteStream((prev) => {
+          const ms = new MediaStream();
+          const prior = prev?.getTracks() ?? [];
+          prior.forEach((x) => ms.addTrack(x));
+          if (!ms.getTracks().some((x) => x.id === t.id)) ms.addTrack(t);
+          return ms;
+        });
         setRtcState("live");
       };
 
-      stream.getTracks().forEach((t) => pc.addTrack(t, stream));
+      stream.getTracks().forEach((tr) => pc.addTrack(tr, stream));
 
       pcRef.current = pc;
       return pc;
@@ -266,14 +295,12 @@ export function useRoomWebRtc({
 
     const unsub = addRoomTopicListener(onSignal);
 
-    /** Polite peer asks impolite to (re)send an offer — fixes missed ROLE/OFFER when Video joins late. */
     let requestTimer: ReturnType<typeof setTimeout> | undefined;
     if (webrtcSelfRole === "polite") {
       publishSignaling("REQUEST_OFFER", {});
       requestTimer = setTimeout(() => publishSignaling("REQUEST_OFFER", {}), 1200);
     }
 
-    /** Impolite peer bootstraps negotiation if the polite peer joined before Video or OFFER was missed. */
     let bootTimer: ReturnType<typeof setTimeout> | undefined;
     if (webrtcSelfRole === "impolite") {
       bootTimer = setTimeout(() => void sendOffer(), 500);
@@ -295,6 +322,51 @@ export function useRoomWebRtc({
     webrtcSelfRole,
   ]);
 
+  /** Add/remove screen-share sender + renegotiate. */
+  useEffect(() => {
+    const pc = pcRef.current;
+    if (!pc || !callActive || !wsConnected) return;
+
+    const run = async () => {
+      const screen = localScreenStream;
+      const vt = screen?.getVideoTracks()[0];
+
+      try {
+        if (screen && vt) {
+          if (screenSenderRef.current) {
+            await screenSenderRef.current.replaceTrack(vt);
+          } else {
+            screenSenderRef.current = pc.addTrack(vt, screen);
+          }
+          makingOfferRef.current = true;
+          const offer = await pc.createOffer();
+          await pc.setLocalDescription(offer);
+          publishSignaling("OFFER", {
+            type: pc.localDescription?.type,
+            sdp: pc.localDescription?.sdp,
+          });
+        } else if (screenSenderRef.current) {
+          pc.removeTrack(screenSenderRef.current);
+          screenSenderRef.current = null;
+          makingOfferRef.current = true;
+          const offer = await pc.createOffer();
+          await pc.setLocalDescription(offer);
+          publishSignaling("OFFER", {
+            type: pc.localDescription?.type,
+            sdp: pc.localDescription?.sdp,
+          });
+        }
+      } catch (e) {
+        setRtcError(e instanceof Error ? e.message : "Screen share failed");
+        setRtcState("error");
+      } finally {
+        makingOfferRef.current = false;
+      }
+    };
+
+    void run();
+  }, [localScreenStream, callActive, wsConnected, publishSignaling]);
+
   useEffect(() => {
     if (prevRoomIdRef.current !== null && prevRoomIdRef.current !== roomId) {
       closePeer();
@@ -302,5 +374,11 @@ export function useRoomWebRtc({
     prevRoomIdRef.current = roomId;
   }, [roomId, closePeer]);
 
-  return { remoteStream, rtcState, rtcError, hangUp };
+  return {
+    remoteStream,
+    remoteScreenStream,
+    rtcState,
+    rtcError,
+    hangUp,
+  };
 }

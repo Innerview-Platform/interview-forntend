@@ -1,3 +1,4 @@
+import { RoomMediaGate } from "./room-media-gate";
 import { RoomSessionProvider } from "./room-session-context";
 import { RoomShell } from "./room-shell";
 
@@ -11,7 +12,9 @@ export default async function RoomLayout({
   const { roomId } = await params;
   return (
     <RoomSessionProvider roomId={roomId}>
-      <RoomShell roomId={roomId}>{children}</RoomShell>
+      <RoomMediaGate>
+        <RoomShell roomId={roomId}>{children}</RoomShell>
+      </RoomMediaGate>
     </RoomSessionProvider>
   );
 }

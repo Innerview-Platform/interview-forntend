@@ -14,7 +14,12 @@ import {
   getServerClientSessionSnapshot,
   subscribeClientSession,
 } from "@/lib/client-session";
-import { apiJoinRoom, apiLeaveRoom } from "@/lib/room-api";
+import {
+  apiJoinRoom,
+  apiLeaveRoom,
+  parseRoomParticipants,
+  type RoomParticipantInfo,
+} from "@/lib/room-api";
 import { siteConfig } from "@/lib/site-config";
 import {
   useSharedEditor,
@@ -23,6 +28,9 @@ import {
 
 export type RoomSessionValue = UseSharedEditorReturn & {
   joinError: string | null;
+  participants: RoomParticipantInfo[];
+  /** Best-effort display names from peer CURSOR_UPDATE payloads. */
+  presenceNames: Record<string, string>;
 };
 
 const RoomSessionContext = createContext<RoomSessionValue | null>(null);
@@ -42,6 +50,10 @@ export function RoomSessionProvider({
   );
 
   const [joinError, setJoinError] = useState<string | null>(null);
+  const [participants, setParticipants] = useState<RoomParticipantInfo[]>([]);
+  const [presenceNames, setPresenceNames] = useState<Record<string, string>>(
+    {},
+  );
 
   const hook = useSharedEditor({
     token: token ?? "",
@@ -62,8 +74,11 @@ export function RoomSessionProvider({
     (async () => {
       try {
         setJoinError(null);
-        await apiJoinRoom(roomId);
-        if (!cancelled) hook.connect();
+        const dto = await apiJoinRoom(roomId);
+        if (!cancelled) {
+          setParticipants(parseRoomParticipants(dto.participants));
+          hook.connect();
+        }
       } catch (e) {
         setJoinError(e instanceof Error ? e.message : "Could not join room");
       }
@@ -76,7 +91,27 @@ export function RoomSessionProvider({
     };
   }, [token, user?.id, roomId, hook.connect, hook.disconnect]);
 
-  const value: RoomSessionValue = { ...hook, joinError };
+  useEffect(() => {
+    const uid = user?.id;
+    if (!uid) return;
+    return hook.addCursorListener((msg) => {
+      if (!msg.userId || msg.userId === uid) return;
+      const nm = msg.name?.trim();
+      if (nm) {
+        setPresenceNames((prev) => ({
+          ...prev,
+          [msg.userId]: nm,
+        }));
+      }
+    });
+  }, [hook.addCursorListener, user?.id]);
+
+  const value: RoomSessionValue = {
+    ...hook,
+    joinError,
+    participants,
+    presenceNames,
+  };
 
   return (
     <RoomSessionContext.Provider value={value}>

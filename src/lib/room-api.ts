@@ -42,6 +42,23 @@ export type ActiveRoomDto = {
   participants?: unknown;
 };
 
+/** Parsed from `ActiveRoomDto.participants` (Jackson serializes map entries). */
+export type RoomParticipantInfo = {
+  userId: string;
+};
+
+export function parseRoomParticipants(raw: unknown): RoomParticipantInfo[] {
+  if (!raw || typeof raw !== "object") return [];
+  const out: RoomParticipantInfo[] = [];
+  for (const v of Object.values(raw as Record<string, unknown>)) {
+    if (v && typeof v === "object" && v !== null && "userId" in v) {
+      const uid = (v as { userId?: unknown }).userId;
+      if (typeof uid === "string") out.push({ userId: uid });
+    }
+  }
+  return out;
+}
+
 export async function apiJoinRoom(roomId: string): Promise<ActiveRoomDto> {
   const res = await fetch(
     `${apiPrefix()}/api/rooms/${encodeURIComponent(roomId)}/join`,

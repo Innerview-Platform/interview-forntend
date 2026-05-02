@@ -13,7 +13,7 @@ const yjsRoot = path.join(process.cwd(), "node_modules", "yjs");
 
 const nextConfig: NextConfig = {
   /** Consistent CJS/ESM handling for the CRDT package. */
-  transpilePackages: ["yjs"],
+  transpilePackages: ["yjs", "monaco-editor", "y-monaco"],
   turbopack: {
     /** Relative path only — Turbopack does not resolve absolute Windows paths for aliases yet. */
     resolveAlias: {
