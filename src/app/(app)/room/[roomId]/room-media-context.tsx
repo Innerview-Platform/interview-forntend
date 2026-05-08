@@ -16,7 +16,9 @@ import {
   getServerClientSessionSnapshot,
   subscribeClientSession,
 } from "@/lib/client-session";
+import { getLiveKitUrl, getVideoTransport } from "@/lib/video-config";
 import { useRoomSession } from "@/app/(app)/room/[roomId]/room-session-context";
+import { useRoomLiveKit } from "@/hooks/useRoomLiveKit";
 import { useRoomWebRtc } from "@/hooks/useRoomWebRtc";
 
 export type RoomMediaContextValue = {
@@ -33,6 +35,8 @@ export type RoomMediaContextValue = {
   rtcState: "idle" | "connecting" | "live" | "error";
   rtcError: string | null;
   mediaError: string | null;
+  /** `livekit` uses SFU + JWT; `p2p` uses STOMP signaling (INNER-79). */
+  videoTransport: ReturnType<typeof getVideoTransport>;
   setDockMinimized: (v: boolean) => void;
   startPreview: () => Promise<void>;
   joinCall: () => Promise<void>;
@@ -61,7 +65,7 @@ export function RoomMediaProvider({
         ? params.roomId[0]
         : "";
 
-  const { user } = useSyncExternalStore(
+  const { user, token } = useSyncExternalStore(
     subscribeClientSession,
     getClientSessionSnapshot,
     getServerClientSessionSnapshot,
@@ -74,6 +78,9 @@ export function RoomMediaProvider({
     webrtcSelfRole,
   } = useRoomSession();
 
+  const videoTransport = useMemo(() => getVideoTransport(), []);
+  const liveKitUrl = useMemo(() => getLiveKitUrl(), []);
+
   const [audioOn, setAudioOn] = useState(true);
   const [videoOn, setVideoOn] = useState(true);
   const [preJoinDone, setPreJoinDone] = useState(false);
@@ -83,15 +90,40 @@ export function RoomMediaProvider({
   const [mediaError, setMediaError] = useState<string | null>(null);
   const [dockMinimized, setDockMinimized] = useState(false);
 
-  const callActive = preJoinDone && !!localStream;
+  const callActive =
+    preJoinDone &&
+    (videoTransport === "livekit" || !!localStream);
 
   const {
-    remoteStream,
-    remoteScreenStream,
-    rtcState,
-    rtcError,
+    localStream: liveKitLocalStream,
+    localScreenStream: liveKitLocalScreen,
+    remoteStream: liveKitRemote,
+    remoteScreenStream: liveKitRemoteScreen,
+    rtcState: liveKitRtcState,
+    rtcError: liveKitRtcError,
+    screenSharing: liveKitScreenSharing,
+    hangUp: hangUpLiveKit,
+    startScreenShare: startScreenShareLiveKit,
+    stopScreenShare: stopScreenShareLiveKit,
+  } = useRoomLiveKit({
+    enabled: videoTransport === "livekit",
+    roomName: roomId,
+    userId: user?.id ?? "",
+    accessToken: token,
+    liveKitUrl,
+    callActive: videoTransport === "livekit" && preJoinDone,
+    cameraEnabled: videoOn,
+    micEnabled: audioOn,
+  });
+
+  const {
+    remoteStream: p2pRemote,
+    remoteScreenStream: p2pRemoteScreen,
+    rtcState: p2pRtcState,
+    rtcError: p2pRtcError,
     hangUp: hangUpRtc,
   } = useRoomWebRtc({
+    enabled: videoTransport === "p2p",
     roomId,
     userId: user?.id ?? "",
     wsConnected: wsState === "connected",
@@ -100,10 +132,41 @@ export function RoomMediaProvider({
     publishSignaling,
     localStream,
     localScreenStream,
-    callActive,
+    callActive: videoTransport === "p2p" && callActive,
   });
 
-  const screenSharing = !!localScreenStream;
+  /** Drop gUM preview once LiveKit publishes local camera/mic. */
+  useEffect(() => {
+    if (videoTransport !== "livekit" || !liveKitLocalStream) return;
+    setLocalStream((prev) => {
+      if (!prev) return null;
+      prev.getTracks().forEach((t) => t.stop());
+      return null;
+    });
+  }, [videoTransport, liveKitLocalStream]);
+
+  const localStreamOut =
+    videoTransport === "livekit"
+      ? liveKitLocalStream ?? localStream
+      : localStream;
+
+  const localScreenOut =
+    videoTransport === "livekit" ? liveKitLocalScreen : localScreenStream;
+
+  const remoteStreamOut =
+    videoTransport === "livekit" ? liveKitRemote : p2pRemote;
+
+  const remoteScreenOut =
+    videoTransport === "livekit" ? liveKitRemoteScreen : p2pRemoteScreen;
+
+  const rtcStateOut =
+    videoTransport === "livekit" ? liveKitRtcState : p2pRtcState;
+
+  const rtcErrorOut =
+    videoTransport === "livekit" ? liveKitRtcError : p2pRtcError;
+
+  const screenSharingOut =
+    videoTransport === "livekit" ? liveKitScreenSharing : !!localScreenStream;
 
   const startPreview = useCallback(async () => {
     setMediaError(null);
@@ -124,18 +187,38 @@ export function RoomMediaProvider({
   }, [audioOn, videoOn]);
 
   const joinCall = useCallback(async () => {
+    setMediaError(null);
+    if (videoTransport === "livekit") {
+      if (!liveKitUrl) {
+        setMediaError(
+          "LiveKit URL is not configured. Set NEXT_PUBLIC_LIVEKIT_URL.",
+        );
+        return;
+      }
+      setPreJoinDone(true);
+      setDockMinimized(false);
+      return;
+    }
     await startPreview();
     setPreJoinDone(true);
     setDockMinimized(false);
-  }, [startPreview]);
+  }, [videoTransport, liveKitUrl, startPreview]);
 
   const stopScreenShare = useCallback(() => {
+    if (videoTransport === "livekit") {
+      void stopScreenShareLiveKit();
+      return;
+    }
     localScreenStream?.getTracks().forEach((t) => t.stop());
     setLocalScreenStream(null);
-  }, [localScreenStream]);
+  }, [videoTransport, localScreenStream, stopScreenShareLiveKit]);
 
   const startScreenShare = useCallback(async () => {
     try {
+      if (videoTransport === "livekit") {
+        await startScreenShareLiveKit();
+        return;
+      }
       const stream = await navigator.mediaDevices.getDisplayMedia({
         video: true,
         audio: false,
@@ -150,41 +233,59 @@ export function RoomMediaProvider({
         e instanceof Error ? e.message : "Could not share screen",
       );
     }
-  }, [localScreenStream, stopScreenShare]);
+  }, [videoTransport, localScreenStream, startScreenShareLiveKit, stopScreenShare]);
 
   const toggleAudio = useCallback(() => {
     setAudioOn((a) => {
       const next = !a;
-      localStream?.getAudioTracks().forEach((t) => {
-        t.enabled = next;
-      });
+      if (videoTransport === "p2p") {
+        localStream?.getAudioTracks().forEach((t) => {
+          t.enabled = next;
+        });
+      }
       return next;
     });
-  }, [localStream]);
+  }, [localStream, videoTransport]);
 
   const toggleVideo = useCallback(() => {
     setVideoOn((v) => {
       const next = !v;
-      localStream?.getVideoTracks().forEach((t) => {
-        t.enabled = next;
-      });
+      if (videoTransport === "p2p") {
+        localStream?.getVideoTracks().forEach((t) => {
+          t.enabled = next;
+        });
+      }
       return next;
     });
-  }, [localStream]);
+  }, [localStream, videoTransport]);
 
   useEffect(() => {
+    if (videoTransport !== "p2p") return;
     if (!localStream) return;
     localStream.getAudioTracks().forEach((t) => (t.enabled = audioOn));
     localStream.getVideoTracks().forEach((t) => (t.enabled = videoOn));
-  }, [audioOn, videoOn, localStream]);
+  }, [audioOn, videoOn, localStream, videoTransport]);
 
   const hangUp = useCallback(() => {
     hangUpRtc();
-    stopScreenShare();
+    hangUpLiveKit();
+    if (videoTransport === "p2p") {
+      localScreenStream?.getTracks().forEach((t) => t.stop());
+      setLocalScreenStream(null);
+    } else {
+      void stopScreenShareLiveKit();
+    }
     localStream?.getTracks().forEach((t) => t.stop());
     setLocalStream(null);
     setPreJoinDone(false);
-  }, [hangUpRtc, localStream, stopScreenShare]);
+  }, [
+    hangUpRtc,
+    hangUpLiveKit,
+    stopScreenShareLiveKit,
+    localScreenStream,
+    localStream,
+    videoTransport,
+  ]);
 
   const leaveRoomToDashboard = useCallback(() => {
     hangUp();
@@ -193,19 +294,20 @@ export function RoomMediaProvider({
 
   const value = useMemo(
     (): RoomMediaContextValue => ({
-      localStream,
-      localScreenStream,
-      remoteStream,
-      remoteScreenStream,
+      localStream: localStreamOut,
+      localScreenStream: localScreenOut,
+      remoteStream: remoteStreamOut,
+      remoteScreenStream: remoteScreenOut,
       callActive,
       preJoinDone,
       audioOn,
       videoOn,
       dockMinimized,
-      screenSharing,
-      rtcState,
-      rtcError,
+      screenSharing: screenSharingOut,
+      rtcState: rtcStateOut,
+      rtcError: rtcErrorOut,
       mediaError,
+      videoTransport,
       setDockMinimized,
       startPreview,
       joinCall,
@@ -217,19 +319,20 @@ export function RoomMediaProvider({
       leaveRoomToDashboard,
     }),
     [
-      localStream,
-      localScreenStream,
-      remoteStream,
-      remoteScreenStream,
+      localStreamOut,
+      localScreenOut,
+      remoteStreamOut,
+      remoteScreenOut,
       callActive,
       preJoinDone,
       audioOn,
       videoOn,
       dockMinimized,
-      screenSharing,
-      rtcState,
-      rtcError,
+      screenSharingOut,
+      rtcStateOut,
+      rtcErrorOut,
       mediaError,
+      videoTransport,
       startPreview,
       joinCall,
       hangUp,

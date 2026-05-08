@@ -1,16 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Input } from "@/components/ui/Input";
-import { apiLogin } from "@/lib/auth-api";
+import { apiLogin, getSafePostLoginPath } from "@/lib/auth-api";
 import { siteConfig } from "@/lib/site-config";
 
 export function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [justRegistered, setJustRegistered] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -34,7 +35,10 @@ export function LoginForm() {
     setLoading(true);
     try {
       await apiLogin(email, password);
-      router.replace(siteConfig.routes.dashboard);
+      const destination = getSafePostLoginPath(
+        searchParams.get("next"),
+      );
+      router.replace(destination);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Sign-in failed.");
     } finally {

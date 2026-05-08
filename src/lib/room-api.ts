@@ -1,5 +1,5 @@
 import { API_BASE_URL } from "@/lib/api-config";
-import { getStoredAccessToken } from "@/lib/auth-api";
+import { getStoredAccessToken, throwRedirectingIfUnauthorized } from "@/lib/auth-api";
 
 function apiPrefix(): string {
   return API_BASE_URL.replace(/\/$/, "");
@@ -68,6 +68,7 @@ export async function apiJoinRoom(roomId: string): Promise<ActiveRoomDto> {
       headers: authHeaders(),
     },
   );
+  throwRedirectingIfUnauthorized(res);
   if (!res.ok) throw new Error(await readErrorMessage(res));
   return (await res.json()) as ActiveRoomDto;
 }
@@ -81,5 +82,6 @@ export async function apiLeaveRoom(roomId: string): Promise<void> {
       headers: authHeaders(),
     },
   );
+  throwRedirectingIfUnauthorized(res);
   if (!res.ok) throw new Error(await readErrorMessage(res));
 }

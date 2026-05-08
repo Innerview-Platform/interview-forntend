@@ -12,6 +12,7 @@ import {
   getUserColorCss,
   initialsFromLabel,
 } from "@/lib/user-color";
+import { canonicalUserKey, sameUserIdentity } from "@/lib/user-id";
 
 export function ParticipantAvatarStrip() {
   const { user } = useSyncExternalStore(
@@ -31,11 +32,14 @@ export function ParticipantAvatarStrip() {
   return (
     <div className="flex max-w-[min(480px,55vw)] flex-wrap items-center justify-end gap-2">
       {rows.map((id) => {
-        const self = id === user?.id;
+        const self = user?.id ? sameUserIdentity(id, user.id) : false;
+        const fromPresence =
+          presenceNames[canonicalUserKey(id)] ??
+          presenceNames[id.toLowerCase()];
         const label =
           self && user?.email
             ? user.email.split("@")[0] ?? user.email
-            : presenceNames[id] ?? `${id.slice(0, 8)}…`;
+            : fromPresence ?? `${id.slice(0, 8)}…`;
         const colors = getUserColorCss(id);
         const initials = initialsFromLabel(label, id);
         return (

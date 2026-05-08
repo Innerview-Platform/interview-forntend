@@ -25,6 +25,7 @@ import {
   useSharedEditor,
   type UseSharedEditorReturn,
 } from "@/hooks/useSharedEditor";
+import { canonicalUserKey, sameUserIdentity } from "@/lib/user-id";
 
 export type RoomSessionValue = UseSharedEditorReturn & {
   joinError: string | null;
@@ -95,16 +96,38 @@ export function RoomSessionProvider({
     const uid = user?.id;
     if (!uid) return;
     return hook.addCursorListener((msg) => {
-      if (!msg.userId || msg.userId === uid) return;
+      if (!msg.userId) return;
+      if (sameUserIdentity(msg.userId, uid)) return;
       const nm = msg.name?.trim();
       if (nm) {
         setPresenceNames((prev) => ({
           ...prev,
-          [msg.userId]: nm,
+          [canonicalUserKey(msg.userId)]: nm,
         }));
       }
     });
   }, [hook.addCursorListener, user?.id]);
+
+  useEffect(() => {
+    if (!token || !user?.id) return;
+    let debounceTimer: ReturnType<typeof setTimeout> | undefined;
+    const unsub = hook.addRoomTopicListener((msg) => {
+      if (msg.type !== "PEER_WS_JOINED") return;
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        debounceTimer = undefined;
+        void apiJoinRoom(roomId)
+          .then((dto) =>
+            setParticipants(parseRoomParticipants(dto.participants)),
+          )
+          .catch(() => {});
+      }, 300);
+    });
+    return () => {
+      unsub();
+      if (debounceTimer) clearTimeout(debounceTimer);
+    };
+  }, [token, user?.id, roomId, hook.addRoomTopicListener]);
 
   const value: RoomSessionValue = {
     ...hook,

@@ -1,48 +1,47 @@
 "use client";
 
-import { useRouter, useParams } from "next/navigation";
 import {
   Loader2,
   Mic,
   MicOff,
   MonitorUp,
-  PhoneOff,
   Square,
   Video,
   VideoOff,
 } from "lucide-react";
-import { useCallback, useEffect, useRef } from "react";
-import { useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
 import { GlassCard } from "@/components/ui/GlassCard";
 import {
   getClientSessionSnapshot,
   getServerClientSessionSnapshot,
   subscribeClientSession,
 } from "@/lib/client-session";
-import { siteConfig } from "@/lib/site-config";
+import { getLiveKitUrl } from "@/lib/video-config";
 import { useRoomSession } from "@/app/(app)/room/[roomId]/room-session-context";
 import { useRoomMedia } from "@/app/(app)/room/[roomId]/room-media-context";
 
-export function VideoRoomView() {
-  const router = useRouter();
-  const params = useParams();
-  const roomId =
-    typeof params.roomId === "string"
-      ? params.roomId
-      : Array.isArray(params.roomId)
-        ? params.roomId[0]
-        : "";
+export type RoomVideoPanelVariant = "page" | "embedded";
 
-  const { token, user } = useSyncExternalStore(
+type Props = {
+  variant?: RoomVideoPanelVariant;
+  /** Join / room-session errors surfaced above controls */
+  joinError?: string | null;
+};
+
+export function RoomVideoPanel({
+  variant = "page",
+  joinError,
+}: Props) {
+  const { token } = useSyncExternalStore(
     subscribeClientSession,
     getClientSessionSnapshot,
     getServerClientSessionSnapshot,
   );
-
-  const { wsState, joinError, webrtcSelfRole } = useRoomSession();
+  const { wsState, webrtcSelfRole } = useRoomSession();
   const media = useRoomMedia();
-
   const stageRef = useRef<HTMLVideoElement>(null);
+
+  const embedded = variant === "embedded";
 
   const {
     localStream,
@@ -55,6 +54,7 @@ export function VideoRoomView() {
     rtcState,
     rtcError,
     mediaError,
+    videoTransport,
     startPreview,
     joinCall,
     hangUp,
@@ -63,7 +63,6 @@ export function VideoRoomView() {
     startScreenShare,
     stopScreenShare,
     screenSharing,
-    leaveRoomToDashboard,
   } = media;
 
   const bindStage = useCallback(() => {
@@ -85,34 +84,17 @@ export function VideoRoomView() {
     bindStage();
   }, [bindStage]);
 
-  useEffect(() => {
-    if (!token || !user?.id) {
-      router.replace(siteConfig.routes.login);
-    }
-  }, [router, token, user?.id]);
-
-  if (!roomId) {
-    return (
-      <div className="flex flex-1 items-center justify-center text-sm text-muted">
-        Invalid room…
-      </div>
-    );
-  }
-
-  if (!token || !user?.id) {
-    return (
-      <div className="flex flex-1 items-center justify-center text-sm text-muted">
-        Redirecting…
-      </div>
-    );
-  }
-
   const wsLabel =
     wsState === "connected"
       ? "Connected"
       : wsState === "connecting"
         ? "Connecting…"
         : "Offline";
+
+  const canJoinCall =
+    videoTransport === "livekit"
+      ? !!token && !!getLiveKitUrl()
+      : wsState === "connected";
 
   const stageLabel = localScreenStream
     ? "Your screen"
@@ -124,54 +106,74 @@ export function VideoRoomView() {
           ? "Connecting…"
           : "Waiting for peer…";
 
+  const controlBtn =
+    embedded
+      ? "inline-flex h-9 w-9 items-center justify-center rounded-lg border text-sm"
+      : "inline-flex h-11 w-11 items-center justify-center rounded-xl border text-base";
+
+  const StageVideoClass = embedded
+    ? "h-full w-full max-h-[min(42vh,360px)] object-contain"
+    : "h-full max-h-[min(72vh,720px)] w-full object-contain";
+
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4">
+    <div
+      className={`flex min-h-0 flex-1 flex-col ${embedded ? "gap-2" : "gap-4"}`}
+    >
       <div className="shrink-0">
         <p className="text-[10px] font-semibold uppercase tracking-wider text-muted">
-          Video · STOMP signaling ({wsLabel})
-          {webrtcSelfRole ? ` · ${webrtcSelfRole}` : ""}
+          Video ·{" "}
+          {videoTransport === "livekit"
+            ? "LiveKit SFU"
+            : `STOMP (${wsLabel})`}
+          {videoTransport === "p2p" && webrtcSelfRole
+            ? ` · ${webrtcSelfRole}`
+            : ""}
         </p>
       </div>
 
       {joinError ? (
-        <GlassCard className="border-red-500/25 p-4 text-sm text-red-200">
+        <GlassCard className="border-red-500/25 p-3 text-sm text-red-200 lg:p-4">
           {joinError}
         </GlassCard>
       ) : null}
 
       {!preJoinDone ? (
-        <GlassCard className="space-y-5 p-6">
+        <GlassCard className={`space-y-4 ${embedded ? "p-4" : "space-y-5 p-6"}`}>
           <div>
-            <h2 className="text-lg font-semibold text-foreground">
+            <h2
+              className={`font-semibold text-foreground ${embedded ? "text-base" : "text-lg"}`}
+            >
               Camera & microphone
             </h2>
-            <p className="mt-2 text-sm text-muted">
-              Preview devices, then join. Video tiles also appear in the
-              floating dock after you join.
+            <p className={`mt-1.5 text-muted ${embedded ? "text-xs" : "mt-2 text-sm"}`}>
+              Preview devices, then join.{" "}
+              {embedded
+                ? "Video stays in this column while you code."
+                : "You can dock tile previews from the tray after joining."}
             </p>
           </div>
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-2">
             <button
               type="button"
               onClick={() => void startPreview()}
-              className="rounded-xl border border-white/20 px-4 py-2.5 text-sm font-medium hover:bg-white/5"
+              className="rounded-xl border border-white/20 px-3 py-2 text-xs font-medium hover:bg-white/5 sm:px-4 sm:py-2.5 sm:text-sm"
             >
               Preview devices
             </button>
             <button
               type="button"
               onClick={() => void joinCall()}
-              disabled={wsState !== "connected"}
-              className="inline-flex items-center gap-2 rounded-xl bg-teal-600/90 px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
+              disabled={!canJoinCall}
+              className="inline-flex items-center gap-2 rounded-xl bg-teal-600/90 px-4 py-2 text-xs font-semibold text-white disabled:opacity-40 sm:px-5 sm:py-2.5 sm:text-sm"
             >
-              {wsState !== "connected" ? (
+              {!canJoinCall && videoTransport === "p2p" ? (
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
               ) : null}
               Join call
             </button>
           </div>
           {mediaError ? (
-            <p className="text-sm text-red-300">{mediaError}</p>
+            <p className="text-xs text-red-300 sm:text-sm">{mediaError}</p>
           ) : null}
           <div className="overflow-hidden rounded-xl border border-white/10 bg-black/50">
             <video
@@ -187,24 +189,26 @@ export function VideoRoomView() {
         </GlassCard>
       ) : (
         <>
-          <div className="relative min-h-0 flex-1 overflow-hidden rounded-xl border border-white/10 bg-black/60">
+          <div
+            className={`relative flex min-h-0 flex-shrink-0 overflow-hidden rounded-xl border border-white/10 bg-black/60 ${embedded ? "aspect-video max-h-[min(42vh,360px)] min-h-[140px] w-full" : "flex-1"}`}
+          >
             <video
               ref={stageRef}
-              className="h-full max-h-[min(72vh,720px)] w-full object-contain"
+              className={StageVideoClass}
               playsInline
               autoPlay
               muted={!!localScreenStream}
             />
-            <div className="pointer-events-none absolute bottom-3 left-3 rounded-lg bg-black/65 px-2 py-1 text-[11px] text-white">
+            <div className="pointer-events-none absolute bottom-2 left-2 rounded-md bg-black/65 px-1.5 py-0.5 text-[10px] text-white sm:bottom-3 sm:left-3 sm:rounded-lg sm:px-2 sm:py-1 sm:text-[11px]">
               {stageLabel}
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-shrink-0 flex-wrap items-center gap-1.5 sm:gap-2">
             <button
               type="button"
               onClick={toggleAudio}
-              className={`inline-flex h-11 w-11 items-center justify-center rounded-xl border ${
+              className={`${controlBtn} ${
                 audioOn
                   ? "border-white/20 bg-white/10"
                   : "border-red-400/40 bg-red-500/25"
@@ -212,15 +216,15 @@ export function VideoRoomView() {
               aria-label={audioOn ? "Mute" : "Unmute"}
             >
               {audioOn ? (
-                <Mic className="h-5 w-5" />
+                <Mic className="h-4 w-4 sm:h-5 sm:w-5" />
               ) : (
-                <MicOff className="h-5 w-5" />
+                <MicOff className="h-4 w-4 sm:h-5 sm:w-5" />
               )}
             </button>
             <button
               type="button"
               onClick={toggleVideo}
-              className={`inline-flex h-11 w-11 items-center justify-center rounded-xl border ${
+              className={`${controlBtn} ${
                 videoOn
                   ? "border-white/20 bg-white/10"
                   : "border-amber-400/40 bg-amber-500/25"
@@ -228,27 +232,27 @@ export function VideoRoomView() {
               aria-label={videoOn ? "Camera off" : "Camera on"}
             >
               {videoOn ? (
-                <Video className="h-5 w-5" />
+                <Video className="h-4 w-4 sm:h-5 sm:w-5" />
               ) : (
-                <VideoOff className="h-5 w-5" />
+                <VideoOff className="h-4 w-4 sm:h-5 sm:w-5" />
               )}
             </button>
             {screenSharing ? (
               <button
                 type="button"
                 onClick={stopScreenShare}
-                className="inline-flex items-center gap-2 rounded-xl border border-amber-400/40 bg-amber-500/20 px-4 py-2 text-sm text-amber-100"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-amber-400/40 bg-amber-500/20 px-2 py-1.5 text-[11px] text-amber-100 sm:gap-2 sm:rounded-xl sm:px-4 sm:py-2 sm:text-sm"
               >
-                <Square className="h-4 w-4" />
+                <Square className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 Stop share
               </button>
             ) : (
               <button
                 type="button"
                 onClick={() => void startScreenShare()}
-                className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-sm"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-white/20 bg-white/10 px-2 py-1.5 text-[11px] sm:gap-2 sm:rounded-xl sm:px-4 sm:py-2 sm:text-sm"
               >
-                <MonitorUp className="h-4 w-4" />
+                <MonitorUp className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 Share screen
               </button>
             )}
@@ -257,19 +261,11 @@ export function VideoRoomView() {
               onClick={() => {
                 hangUp();
               }}
-              className="inline-flex items-center gap-2 rounded-xl border border-white/15 px-4 py-2 text-sm text-muted hover:bg-white/5"
+              className="inline-flex items-center rounded-lg border border-white/15 px-2 py-1.5 text-[11px] text-muted hover:bg-white/5 sm:rounded-xl sm:px-4 sm:py-2 sm:text-sm"
             >
               Disconnect AV
             </button>
-            <button
-              type="button"
-              onClick={leaveRoomToDashboard}
-              className="inline-flex items-center gap-2 rounded-xl border border-red-400/40 bg-red-500/15 px-4 py-2 text-sm text-red-100"
-            >
-              <PhoneOff className="h-4 w-4" />
-              Leave room
-            </button>
-            <span className="ml-auto font-mono text-[11px] text-muted">
+            <span className="ml-auto hidden font-mono text-[10px] text-muted sm:inline sm:text-[11px]">
               RTC {rtcState}
               {rtcError ? ` · ${rtcError}` : ""}
             </span>

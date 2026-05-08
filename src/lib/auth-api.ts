@@ -1,4 +1,5 @@
 import { API_BASE_URL } from "@/lib/api-config";
+import { siteConfig } from "@/lib/site-config";
 
 const ACCESS_TOKEN_KEY = "innerview_access_token";
 const USER_KEY = "innerview_user";
@@ -52,6 +53,61 @@ export function clearClientSession(): void {
   setStoredAccessToken(null);
   setStoredUser(null);
   notifyAuthChanged();
+}
+
+const AUTH_ROUTE_BASES = new Set<string>([
+  siteConfig.routes.login,
+  siteConfig.routes.signup,
+  siteConfig.routes.forgotPassword,
+  siteConfig.routes.resetPassword,
+]);
+
+/**
+ * If the API responds 401: clear storage and navigate to login (full page load).
+ * Skips redirect when already on auth/marketing signup flows to avoid loops.
+ * @returns true if navigation was triggered (caller should abort).
+ */
+export function redirectIfUnauthorizedResponse(res: Response): boolean {
+  if (res.status !== 401 || typeof window === "undefined") return false;
+  const pathname = window.location.pathname.split("?")[0] ?? "";
+  if (AUTH_ROUTE_BASES.has(pathname)) return false;
+
+  clearClientSession();
+  const next = encodeURIComponent(
+    `${window.location.pathname}${window.location.search}`,
+  );
+  window.location.assign(`${siteConfig.routes.login}?next=${next}`);
+  return true;
+}
+
+/** Call after authenticated `fetch`; throws if redirect was triggered. */
+export function throwRedirectingIfUnauthorized(res: Response): void {
+  if (redirectIfUnauthorizedResponse(res)) {
+    throw new Error("Unauthorized — redirecting to sign in.");
+  }
+}
+
+/**
+ * Validates `next` query after login/signup — same-origin paths only (no protocol-relative).
+ */
+export function getSafePostLoginPath(nextRaw: string | null | undefined): string {
+  const fallback = siteConfig.routes.dashboard;
+  if (nextRaw == null || String(nextRaw).trim() === "") return fallback;
+
+  let path: string;
+  try {
+    path = decodeURIComponent(String(nextRaw).trim());
+  } catch {
+    return fallback;
+  }
+
+  path = path.split("#")[0] ?? path;
+  if (!path.startsWith("/") || path.startsWith("//")) return fallback;
+
+  const baseOnly = path.split("?")[0] ?? path;
+  if (AUTH_ROUTE_BASES.has(baseOnly)) return fallback;
+
+  return path || fallback;
 }
 
 async function readErrorMessage(res: Response): Promise<string> {

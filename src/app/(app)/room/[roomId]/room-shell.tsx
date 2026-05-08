@@ -56,7 +56,7 @@ export function RoomShell({
         <main className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden p-3 sm:p-4">
           {children}
         </main>
-        <div className="hidden lg:block">
+        <div className="hidden min-h-0 lg:flex lg:shrink-0">
           <RoomRightRail />
         </div>
       </div>

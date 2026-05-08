@@ -1,5 +1,8 @@
 import { API_BASE_URL } from "@/lib/api-config";
-import { getStoredAccessToken } from "@/lib/auth-api";
+import {
+  getStoredAccessToken,
+  throwRedirectingIfUnauthorized,
+} from "@/lib/auth-api";
 
 /** Matches backend enums (string values). */
 export const EXPERIENCE_LEVELS = [
@@ -103,6 +106,7 @@ export async function apiGetProfile(): Promise<ProfileDto | null> {
     credentials: "include",
     headers: authHeaders(),
   });
+  throwRedirectingIfUnauthorized(res);
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(await readErrorMessage(res));
   return (await res.json()) as ProfileDto;
@@ -120,6 +124,7 @@ export async function apiCreateProfile(body: {
     headers: { ...authHeaders(), "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
+  throwRedirectingIfUnauthorized(res);
   if (!res.ok) throw new Error(await readErrorMessage(res));
   return (await res.json()) as ProfileDto;
 }
@@ -136,6 +141,7 @@ export async function apiUpdateProfile(body: {
     headers: { ...authHeaders(), "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
+  throwRedirectingIfUnauthorized(res);
   if (!res.ok) throw new Error(await readErrorMessage(res));
   return (await res.json()) as ProfileDto;
 }
@@ -146,6 +152,7 @@ export async function apiDeleteProfile(): Promise<void> {
     credentials: "include",
     headers: authHeaders(),
   });
+  throwRedirectingIfUnauthorized(res);
   if (!res.ok) throw new Error(await readErrorMessage(res));
 }
 
@@ -157,6 +164,7 @@ export async function apiPatchProfilePhotoUrl(photoUrl: string): Promise<void> {
     headers: { ...authHeaders(), "Content-Type": "application/json" },
     body: JSON.stringify({ photoUrl }),
   });
+  throwRedirectingIfUnauthorized(res);
   if (!res.ok) throw new Error(await readErrorMessage(res));
 }
 
@@ -165,6 +173,7 @@ export async function apiListMyLanguages(): Promise<ProgrammingLanguageDto[]> {
     credentials: "include",
     headers: authHeaders(),
   });
+  throwRedirectingIfUnauthorized(res);
   if (!res.ok) throw new Error(await readErrorMessage(res));
   return (await res.json()) as ProgrammingLanguageDto[];
 }
@@ -176,6 +185,7 @@ export async function apiAddMyLanguage(languageId: string): Promise<void> {
     headers: { ...authHeaders(), "Content-Type": "application/json" },
     body: JSON.stringify({ language_id: languageId }),
   });
+  throwRedirectingIfUnauthorized(res);
   if (!res.ok) throw new Error(await readErrorMessage(res));
 }
 
@@ -185,6 +195,7 @@ export async function apiRemoveMyLanguage(languageId: string): Promise<void> {
     credentials: "include",
     headers: authHeaders(),
   });
+  throwRedirectingIfUnauthorized(res);
   if (!res.ok) throw new Error(await readErrorMessage(res));
 }
 
@@ -193,6 +204,7 @@ export async function apiListAllLanguages(): Promise<ProgrammingLanguageDto[]> {
     credentials: "include",
     headers: authHeaders(),
   });
+  throwRedirectingIfUnauthorized(res);
   if (!res.ok) throw new Error(await readErrorMessage(res));
   return (await res.json()) as ProgrammingLanguageDto[];
 }
@@ -204,6 +216,7 @@ export async function apiCreateLanguage(name: string): Promise<ProgrammingLangua
     headers: { ...authHeaders(), "Content-Type": "application/json" },
     body: JSON.stringify({ name }),
   });
+  throwRedirectingIfUnauthorized(res);
   if (!res.ok) throw new Error(await readErrorMessage(res));
   return (await res.json()) as ProgrammingLanguageDto;
 }
@@ -213,6 +226,7 @@ export async function apiGetRating(userId: string): Promise<UserRatingDto> {
     credentials: "include",
     headers: authHeaders(),
   });
+  throwRedirectingIfUnauthorized(res);
   if (!res.ok) throw new Error(await readErrorMessage(res));
   return (await res.json()) as UserRatingDto;
 }
@@ -232,6 +246,7 @@ export async function apiGetInterviews(
     `${apiPrefix()}/api/profile/${userId}/interviews${q ? `?${q}` : ""}`,
     { credentials: "include", headers: authHeaders() },
   );
+  throwRedirectingIfUnauthorized(res);
   if (!res.ok) throw new Error(await readErrorMessage(res));
   return (await res.json()) as SpringPage<InterviewHistoryItem>;
 }
@@ -249,6 +264,7 @@ export async function apiGetFeedbackReceived(
     `${apiPrefix()}/api/profile/${userId}/feedback${q ? `?${q}` : ""}`,
     { credentials: "include", headers: authHeaders() },
   );
+  throwRedirectingIfUnauthorized(res);
   if (!res.ok) throw new Error(await readErrorMessage(res));
   return (await res.json()) as SpringPage<FeedbackItem>;
 }
@@ -265,6 +281,7 @@ export async function apiGetFeedbackGiven(
     `${apiPrefix()}/api/profile/${userId}/feedback/given${q ? `?${q}` : ""}`,
     { credentials: "include", headers: authHeaders() },
   );
+  throwRedirectingIfUnauthorized(res);
   if (!res.ok) throw new Error(await readErrorMessage(res));
   return (await res.json()) as SpringPage<FeedbackItem>;
 }

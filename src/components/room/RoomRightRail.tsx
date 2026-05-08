@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useSyncExternalStore } from "react";
+import { MessageSquare, Users, X } from "lucide-react";
+import { useState, useSyncExternalStore } from "react";
 import {
   getClientSessionSnapshot,
   getServerClientSessionSnapshot,
@@ -12,8 +12,11 @@ import {
   getUserColorCss,
   initialsFromLabel,
 } from "@/lib/user-color";
+import { canonicalUserKey, sameUserIdentity } from "@/lib/user-id";
 
+/** Slim strip + expandable panel — default collapsed so the editor keeps full width. */
 export function RoomRightRail() {
+  const [panelOpen, setPanelOpen] = useState(false);
   const [tab, setTab] = useState<"people" | "chat">("people");
   const { user } = useSyncExternalStore(
     subscribeClientSession,
@@ -27,85 +30,137 @@ export function RoomRightRail() {
   participants.forEach((p) => ids.add(p.userId));
   const list = Array.from(ids);
 
+  const stripBtn = (active: boolean) =>
+    `flex h-10 w-10 items-center justify-center rounded-lg border transition-colors ${
+      active
+        ? "border-teal-400/50 bg-teal-500/15 text-teal-200"
+        : "border-transparent text-muted hover:bg-white/5 hover:text-foreground"
+    }`;
+
   return (
-    <aside className="flex w-[280px] shrink-0 flex-col border-l border-white/10 bg-black/25">
-      <div className="flex border-b border-white/10">
+    <div className="flex h-full min-h-0 shrink-0">
+      <nav
+        className="flex w-11 shrink-0 flex-col items-center gap-1 border-l border-white/10 bg-black/30 py-2"
+        aria-label="Participants and messages"
+      >
         <button
           type="button"
-          onClick={() => setTab("people")}
-          className={`flex-1 px-3 py-2.5 text-xs font-semibold uppercase tracking-wide ${
-            tab === "people"
-              ? "border-b-2 border-teal-400 text-foreground"
-              : "text-muted hover:text-foreground"
-          }`}
+          title="Participants"
+          className={stripBtn(panelOpen && tab === "people")}
+          onClick={() => {
+            if (panelOpen && tab === "people") {
+              setPanelOpen(false);
+            } else {
+              setTab("people");
+              setPanelOpen(true);
+            }
+          }}
         >
-          Participants
+          <Users className="h-5 w-5" aria-hidden />
+          <span className="sr-only">Participants</span>
         </button>
         <button
           type="button"
-          onClick={() => setTab("chat")}
-          className={`flex-1 px-3 py-2.5 text-xs font-semibold uppercase tracking-wide ${
-            tab === "chat"
-              ? "border-b-2 border-teal-400 text-foreground"
-              : "text-muted hover:text-foreground"
-          }`}
+          title="Messages"
+          className={stripBtn(panelOpen && tab === "chat")}
+          onClick={() => {
+            if (panelOpen && tab === "chat") {
+              setPanelOpen(false);
+            } else {
+              setTab("chat");
+              setPanelOpen(true);
+            }
+          }}
         >
-          Messages
+          <MessageSquare className="h-5 w-5" aria-hidden />
+          <span className="sr-only">Messages</span>
         </button>
-      </div>
-      <div className="min-h-0 flex-1 overflow-y-auto p-3">
-        {tab === "people" ? (
-          <ul className="space-y-2">
-            {list.map((id) => {
-              const self = id === user?.id;
-              const label =
-                self && user?.email
-                  ? user.email.split("@")[0] ?? user.email
-                  : presenceNames[id] ?? id.slice(0, 8);
-              const colors = getUserColorCss(id);
-              const initials = initialsFromLabel(label, id);
-              return (
-                <li
-                  key={id}
-                  className="flex items-center gap-2 rounded-lg border border-white/10 bg-black/30 px-2 py-2"
-                  style={{ borderLeftWidth: 3, borderLeftColor: colors.ring }}
-                >
-                  <span
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white"
-                    style={{ background: colors.dot }}
-                  >
-                    {initials}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-foreground">
-                      {label}
-                      {self ? (
-                        <span className="ml-1 text-[10px] text-muted">(you)</span>
-                      ) : null}
-                    </p>
-                    <p className="truncate font-mono text-[10px] text-muted">
-                      {id}
-                    </p>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        ) : (
-          <div className="space-y-3 text-sm text-muted">
-            <p>Group chat is not wired to the server yet.</p>
-            <p className="text-xs">
-              Planned: STOMP <code className="rounded bg-white/10 px-1">CHAT_MESSAGE</code>{" "}
-              → <code className="rounded bg-white/10 px-1">/topic/room/…/chat</code>.
+      </nav>
+
+      {panelOpen ? (
+        <aside className="flex w-[min(272px,78vw)] shrink-0 flex-col border-l border-white/10 bg-black/35">
+          <div className="flex items-center justify-between gap-2 border-b border-white/10 px-2 py-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-foreground">
+              {tab === "people" ? "Participants" : "Messages"}
             </p>
-            <textarea
-              disabled
-              placeholder="Coming soon…"
-              className="mt-4 min-h-[88px] w-full resize-none rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm opacity-60"
-            />
+            <button
+              type="button"
+              onClick={() => setPanelOpen(false)}
+              className="rounded-lg p-1.5 text-muted hover:bg-white/10 hover:text-foreground"
+              title="Collapse"
+              aria-label="Collapse sidebar"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </div>
-        )}
-      </div>
-    </aside>
+          <div className="min-h-0 flex-1 overflow-y-auto p-3">
+            {tab === "people" ? (
+              <ul className="space-y-2">
+                {list.map((id) => {
+                  const self = user?.id ? sameUserIdentity(id, user.id) : false;
+                  const fromPresence =
+                    presenceNames[canonicalUserKey(id)] ??
+                    presenceNames[id.toLowerCase()];
+                  const label =
+                    self && user?.email
+                      ? user.email.split("@")[0] ?? user.email
+                      : fromPresence ?? id.slice(0, 8);
+                  const colors = getUserColorCss(id);
+                  const initials = initialsFromLabel(label, id);
+                  return (
+                    <li
+                      key={id}
+                      className="flex items-center gap-2 rounded-lg border border-white/10 bg-black/30 px-2 py-2"
+                      style={{
+                        borderLeftWidth: 3,
+                        borderLeftColor: colors.ring,
+                      }}
+                    >
+                      <span
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white"
+                        style={{ background: colors.dot }}
+                      >
+                        {initials}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-foreground">
+                          {label}
+                          {self ? (
+                            <span className="ml-1 text-[10px] text-muted">
+                              (you)
+                            </span>
+                          ) : null}
+                        </p>
+                        <p className="truncate font-mono text-[10px] text-muted">
+                          {id}
+                        </p>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <div className="space-y-3 text-sm text-muted">
+                <p>Group chat is not wired to the server yet.</p>
+                <p className="text-xs">
+                  Planned: STOMP{" "}
+                  <code className="rounded bg-white/10 px-1">CHAT_MESSAGE</code>{" "}
+                  →{" "}
+                  <code className="rounded bg-white/10 px-1">
+                    /topic/room/…/chat
+                  </code>
+                  .
+                </p>
+                <textarea
+                  disabled
+                  placeholder="Coming soon…"
+                  className="mt-4 min-h-[88px] w-full resize-none rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm opacity-60"
+                />
+              </div>
+            )}
+          </div>
+        </aside>
+      ) : null}
+    </div>
   );
 }

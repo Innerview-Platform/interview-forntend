@@ -5,6 +5,7 @@ import { Client } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
 import * as Y from "yjs";
 import { getWsOrigin } from "@/lib/api-config";
+import { parseJwtSubject, sameUserIdentity } from "@/lib/user-id";
 import type { CompileResultPayload } from "@/lib/compile-result";
 
 export type LogEntry = {
@@ -21,6 +22,8 @@ export type RoomSignalMessage = {
   type?: string;
   roomId?: string;
   senderId?: string;
+  /** Server envelopes (e.g. `PEER_WS_JOINED` from `/topic/room/{id}`). */
+  userId?: string;
   payload?: unknown;
 };
 
@@ -30,6 +33,33 @@ export type RemoteCursorState = {
   column: number;
   name?: string;
 };
+
+function parseRemoteCursorMessage(body: string): RemoteCursorState | null {
+  let raw: Record<string, unknown>;
+  try {
+    raw = JSON.parse(body) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+  const userId = raw.userId;
+  if (typeof userId !== "string" || userId.length === 0) return null;
+  const lineN =
+    typeof raw.line === "number"
+      ? raw.line
+      : Number(String(raw.line ?? NaN));
+  const colN =
+    typeof raw.column === "number"
+      ? raw.column
+      : Number(String(raw.column ?? NaN));
+  if (!Number.isFinite(lineN) || !Number.isFinite(colN)) return null;
+  const name = typeof raw.name === "string" ? raw.name : undefined;
+  return {
+    userId,
+    line: Math.floor(lineN),
+    column: Math.floor(colN),
+    name,
+  };
+}
 
 export type UseSharedEditorReturn = {
   wsState: "off" | "connecting" | "connected";
@@ -220,6 +250,14 @@ export function useSharedEditor({
           }
         } else {
           const pt = payload.plainText ?? "";
+          const currentPlain = text.toString();
+          if (vec.length <= 2 && pt === "" && currentPlain.length > 0) {
+            log(
+              "Skipping empty editor snapshot (would wipe local CRDT)",
+              "warn",
+            );
+            return;
+          }
           doc.transact(() => {
             text.delete(0, text.length);
             text.insert(0, pt);
@@ -292,6 +330,22 @@ export function useSharedEditor({
           }
         });
 
+        client.subscribe(`/user/queue/editor-snapshot`, (msg) => {
+          try {
+            const p = JSON.parse(msg.body) as {
+              base64Vector?: string;
+              plainText?: string;
+            };
+            applyRemoteCode(p);
+            log("Editor snapshot applied (JOIN_FEATURE)", "ok");
+          } catch (e) {
+            log(
+              `Bad editor snapshot: ${e instanceof Error ? e.message : "parse error"}`,
+              "err",
+            );
+          }
+        });
+
         client.subscribe(`/topic/room/${roomId}/ui-available`, (msg) => {
           log(`UI feature available: ${msg.body}`, "ok");
           if (msg.body === "SHARED_EDITOR") setEditorState("on");
@@ -339,9 +393,18 @@ export function useSharedEditor({
 
         client.subscribe(`/topic/room/${roomId}/cursors`, (msg) => {
           try {
-            const raw = JSON.parse(msg.body) as RemoteCursorState;
-            if (raw.userId)
-              cursorListenersRef.current.forEach((fn) => fn(raw));
+            const cur = parseRemoteCursorMessage(msg.body);
+            if (!cur) return;
+            /** Server stamps `userId` from JWT; drop our own echo before UI maps. */
+            const selfPrincipal =
+              parseJwtSubject(token) ?? userIdRef.current;
+            if (
+              selfPrincipal &&
+              sameUserIdentity(cur.userId, selfPrincipal)
+            ) {
+              return;
+            }
+            cursorListenersRef.current.forEach((fn) => fn(cur));
           } catch (e) {
             log(
               `Bad cursor message: ${e instanceof Error ? e.message : "parse"}`,

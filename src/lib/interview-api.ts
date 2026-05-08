@@ -1,5 +1,8 @@
 import { API_BASE_URL } from "@/lib/api-config";
-import { getStoredAccessToken } from "@/lib/auth-api";
+import {
+  getStoredAccessToken,
+  throwRedirectingIfUnauthorized,
+} from "@/lib/auth-api";
 
 export const INTERVIEW_TYPES = [
   "PROBLEM_SOLVING",
@@ -67,6 +70,7 @@ export async function apiCreateInstantInterview(
     headers: { ...authHeaders(), "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
+  throwRedirectingIfUnauthorized(res);
   if (!res.ok) throw new Error(await readErrorMessage(res));
   return (await res.json()) as InterviewResponseDto;
 }

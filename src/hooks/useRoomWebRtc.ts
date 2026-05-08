@@ -59,6 +59,8 @@ export type UseRoomWebRtcOptions = {
   /** Optional screen-capture stream (adds a second video sender when present). */
   localScreenStream: MediaStream | null;
   callActive: boolean;
+  /** When false, P2P signaling stays idle (e.g. LiveKit transport in use). */
+  enabled?: boolean;
 };
 
 export type UseRoomWebRtcReturn = {
@@ -80,6 +82,7 @@ export function useRoomWebRtc({
   localStream,
   localScreenStream,
   callActive,
+  enabled = true,
 }: UseRoomWebRtcOptions): UseRoomWebRtcReturn {
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [remoteScreenStream, setRemoteScreenStream] =
@@ -168,6 +171,10 @@ export function useRoomWebRtc({
   }, [webrtcSelfRole]);
 
   useEffect(() => {
+    if (!enabled) {
+      closePeer();
+      return;
+    }
     if (!callActive || !localStream || !wsConnected) {
       closePeer();
       return;
@@ -312,6 +319,7 @@ export function useRoomWebRtc({
       if (bootTimer) clearTimeout(bootTimer);
     };
   }, [
+    enabled,
     callActive,
     localStream,
     wsConnected,
@@ -324,6 +332,7 @@ export function useRoomWebRtc({
 
   /** Add/remove screen-share sender + renegotiate. */
   useEffect(() => {
+    if (!enabled) return;
     const pc = pcRef.current;
     if (!pc || !callActive || !wsConnected) return;
 
@@ -365,7 +374,7 @@ export function useRoomWebRtc({
     };
 
     void run();
-  }, [localScreenStream, callActive, wsConnected, publishSignaling]);
+  }, [enabled, localScreenStream, callActive, wsConnected, publishSignaling]);
 
   useEffect(() => {
     if (prevRoomIdRef.current !== null && prevRoomIdRef.current !== roomId) {

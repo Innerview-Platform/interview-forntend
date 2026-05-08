@@ -1,5 +1,10 @@
-import { CompileRoomView } from "./compile-room-view";
+import { redirect } from "next/navigation";
 
-export default function RoomCompilePage() {
-  return <CompileRoomView />;
+export default async function RoomCompilePage({
+  params,
+}: {
+  params: Promise<{ roomId: string }>;
+}) {
+  const { roomId } = await params;
+  redirect(`/room/${encodeURIComponent(roomId)}/editor`);
 }
