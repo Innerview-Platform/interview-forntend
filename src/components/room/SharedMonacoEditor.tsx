@@ -28,6 +28,8 @@ import {
   type RemoteCursorWidgetHandle,
 } from "@/components/room/remote-cursor-content-widgets";
 import { canonicalUserKey, sameUserIdentity } from "@/lib/user-id";
+import { Badge } from "@/components/ui/Badge";
+import { ToolbarButton } from "@/components/ui/ToolbarButton";
 
 const MonacoEditor = dynamic(
   async () => (await import("@monaco-editor/react")).default,
@@ -89,7 +91,7 @@ export function SharedMonacoEditor() {
     [publishSignaling, displayLabel],
   );
 
-  /** Trailing debounce — always reset timer so bursts don’t starve updates. */
+  /** Trailing debounce - always reset timer so bursts don’t starve updates. */
   const scheduleCursorPublish = useCallback(
     (ed: editor.IStandaloneCodeEditor) => {
       if (cursorFlushTimer.current) clearTimeout(cursorFlushTimer.current);
@@ -267,19 +269,22 @@ export function SharedMonacoEditor() {
         : "Offline";
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-white/10 bg-black/40">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 px-3 py-2 text-xs text-muted">
-        <span>
-          Live code ·{" "}
-          <span className="text-foreground">{statusLabel}</span>
-          {" · "}v{" "}
-          <span className="font-mono text-foreground">{version}</span>
-        </span>
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-white/10 bg-[#080c14]">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 bg-surface/65 px-3 py-2 text-xs text-muted">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-semibold uppercase tracking-[0.16em] text-muted">
+            Live code
+          </span>
+          <Badge tone={wsState === "connected" ? "success" : "warning"}>
+            {statusLabel}
+          </Badge>
+          <span className="font-mono text-muted">v{version}</span>
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           <label className="flex items-center gap-1.5">
             <span className="sr-only">Language</span>
             <select
-              className="max-w-[140px] rounded-lg border border-white/15 bg-black/30 px-2 py-1 text-xs text-foreground"
+              className="max-w-[150px] rounded-lg border border-white/15 bg-surface-soft/80 px-2.5 py-1.5 text-xs text-foreground outline-none focus:border-accent/50 focus:ring-2 focus:ring-accent/25"
               value={pistonLang}
               onChange={(e) =>
                 setPistonLang(e.target.value as PistonLanguageId)
@@ -292,7 +297,7 @@ export function SharedMonacoEditor() {
               ))}
             </select>
           </label>
-          <button
+          <ToolbarButton
             type="button"
             onClick={() => {
               const sel =
@@ -301,19 +306,18 @@ export function SharedMonacoEditor() {
               compileCode({ language: sel.id, version: sel.version });
             }}
             disabled={wsState !== "connected" || compileBusy}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/15 px-3 py-1 text-xs font-medium text-emerald-100 disabled:opacity-40"
+            tone="success"
           >
             <Play className="h-3.5 w-3.5" aria-hidden />
             {compileBusy ? "Running…" : "Run"}
-          </button>
+          </ToolbarButton>
           {compileResult ? (
-            <button
+            <ToolbarButton
               type="button"
               onClick={() => clearCompileResult()}
-              className="text-xs text-muted underline-offset-4 hover:text-foreground hover:underline"
             >
               Clear output
-            </button>
+            </ToolbarButton>
           ) : null}
         </div>
       </div>
@@ -322,7 +326,7 @@ export function SharedMonacoEditor() {
           {joinError}
         </p>
       ) : null}
-      <div className="min-h-[min(480px,55vh)] flex-1">
+      <div className="min-h-[min(480px,55vh)] flex-1 bg-[#090d16]">
         <MonacoEditor
           height="100%"
           theme="vs-dark"
@@ -343,9 +347,9 @@ export function SharedMonacoEditor() {
         />
       </div>
       {logs.length > 0 ? (
-        <details className="border-t border-white/10 bg-black/30 text-xs">
+        <details className="border-t border-white/10 bg-surface/60 text-xs">
           <summary className="cursor-pointer px-3 py-2 text-muted hover:text-foreground">
-            Debug log ({logs.length}) — click to expand
+            Developer log ({logs.length})
           </summary>
           <div className="max-h-32 overflow-y-auto border-t border-white/10 px-3 py-2 font-mono">
             {logs.slice(-20).map((entry, i) => (

@@ -2,6 +2,8 @@
 
 import { Loader2, Terminal } from "lucide-react";
 import type { CompileResultPayload } from "@/lib/compile-result";
+import { Badge } from "@/components/ui/Badge";
+import { ToolbarButton } from "@/components/ui/ToolbarButton";
 
 type WsState = "off" | "connecting" | "connected";
 
@@ -22,10 +24,10 @@ export function CompileOutputPanel({
 }: Props) {
   return (
     <div
-      className={`flex min-h-[200px] max-h-[min(280px,40vh)] flex-col overflow-hidden rounded-xl border border-white/10 bg-black/45 ${className ?? ""}`}
+      className={`flex min-h-[200px] max-h-[min(280px,40vh)] flex-col overflow-hidden rounded-xl border border-white/10 bg-[#080c14] ${className ?? ""}`}
     >
-      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-white/10 bg-black/35 px-3 py-2">
-        <Terminal className="h-3.5 w-3.5 text-muted" aria-hidden />
+      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-white/10 bg-surface/65 px-3 py-2">
+        <Terminal className="h-3.5 w-3.5 text-accent" aria-hidden />
         <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">
           Run output
         </span>
@@ -36,13 +38,13 @@ export function CompileOutputPanel({
           </span>
         ) : null}
         {compileResult ? (
-          <button
+          <ToolbarButton
             type="button"
             onClick={() => clearCompileResult()}
-            className="ml-auto text-[11px] text-muted underline-offset-4 hover:text-foreground hover:underline"
+            className="ml-auto min-h-7 px-2 py-1"
           >
             Clear
-          </button>
+          </ToolbarButton>
         ) : null}
       </div>
 
@@ -50,15 +52,9 @@ export function CompileOutputPanel({
         {compileResult ? (
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2 text-xs">
-              <span
-                className={
-                  compileResult.ok
-                    ? "font-semibold text-emerald-300"
-                    : "font-semibold text-amber-200"
-                }
-              >
+              <Badge tone={compileResult.ok ? "success" : "warning"}>
                 {compileResult.ok ? "Finished" : "Failed"}
-              </span>
+              </Badge>
               <span className="text-muted">
                 Piston:{" "}
                 <span className="text-foreground">
@@ -118,8 +114,8 @@ export function CompileOutputPanel({
               : wsState === "connected"
                 ? "Run sends the current editor buffer over STOMP (Piston). Output appears here for everyone in the room."
                 : wsState === "connecting"
-                  ? "Connecting — run requires a live session."
-                  : "Offline — connect to run code."}
+                  ? "Connecting - run requires a live session."
+                  : "Offline - connect to run code."}
           </p>
         )}
       </div>

@@ -7,7 +7,7 @@ import { useRoomMedia } from "@/app/(app)/room/[roomId]/room-media-context";
 
 const SLOT_COUNT = 4;
 
-/** Match `/room/{id}/editor` — video tiles are inlined there when a call is active. */
+/** Match `/room/{id}/editor` - video tiles are inlined there when a call is active. */
 function isEmbeddedRoomEditorPath(pathname: string | null) {
   if (!pathname) return false;
   return /\/room\/[^/]+\/editor$/.test(pathname);

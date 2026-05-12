@@ -3,6 +3,8 @@
 import type { ProgrammingLanguageDto } from "@/lib/profile-api";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 /** Native selects: solid fill + light text + dark color-scheme for readable option lists (esp. Windows). */
 const PROFILE_SELECT_BASE =
@@ -41,28 +43,33 @@ export function SkillsSection({
     <GlassCard className="p-6 sm:p-8">
       <h2 className="text-lg font-semibold text-foreground">Skills & languages</h2>
       <p className="mt-1 text-sm text-muted">
-        Tag the stacks you want to practice—tighter lists read faster in the dashboard.
+        Tag the stacks you want to practice-tighter lists read faster in the dashboard.
       </p>
       <div className="mt-5 flex flex-wrap gap-2">
         {myLangs.length === 0 ? (
-          <p className="text-sm text-muted">None selected yet.</p>
+          <EmptyState
+            className="w-full"
+            title="No languages selected"
+            description="Add the languages you want to practice so interview partners can scan your stack quickly."
+          />
         ) : (
           myLangs.map((l) => (
-            <span
+            <Badge
               key={l.id}
-              className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/25 bg-violet-500/10 px-3 py-1.5 text-xs font-medium text-violet-50"
+              tone="accent"
+              className="pr-1"
             >
               {l.name}
               <button
                 type="button"
-                className="ml-0.5 rounded-full p-0.5 text-violet-200/80 hover:bg-white/10 hover:text-white"
+                className="ml-0.5 rounded-full px-1 text-violet-100/80 hover:bg-white/10 hover:text-white"
                 disabled={langBusy}
                 onClick={() => onRemoveLanguage(l.id)}
                 aria-label={`Remove ${l.name}`}
               >
                 ×
               </button>
-            </span>
+            </Badge>
           ))
         )}
       </div>
@@ -100,7 +107,7 @@ export function SkillsSection({
             value={newLangName}
             onChange={(e) => onNewLangName(e.target.value)}
             placeholder="e.g. Dart"
-            className="rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-foreground"
+            className="rounded-lg border border-white/15 bg-surface-soft/75 px-3 py-2 text-sm text-foreground outline-none focus:border-accent/50 focus:ring-2 focus:ring-accent/25"
           />
           <Button
             type="button"

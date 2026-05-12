@@ -11,6 +11,8 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
 import { GlassCard } from "@/components/ui/GlassCard";
+import { Badge } from "@/components/ui/Badge";
+import { ToolbarButton } from "@/components/ui/ToolbarButton";
 import {
   getClientSessionSnapshot,
   getServerClientSessionSnapshot,
@@ -108,8 +110,8 @@ export function RoomVideoPanel({
 
   const controlBtn =
     embedded
-      ? "inline-flex h-9 w-9 items-center justify-center rounded-lg border text-sm"
-      : "inline-flex h-11 w-11 items-center justify-center rounded-xl border text-base";
+      ? "inline-flex h-9 w-9 items-center justify-center rounded-lg border text-sm transition"
+      : "inline-flex h-11 w-11 items-center justify-center rounded-lg border text-base transition";
 
   const StageVideoClass = embedded
     ? "h-full w-full max-h-[min(42vh,360px)] object-contain"
@@ -119,16 +121,16 @@ export function RoomVideoPanel({
     <div
       className={`flex min-h-0 flex-1 flex-col ${embedded ? "gap-2" : "gap-4"}`}
     >
-      <div className="shrink-0">
+      <div className="flex shrink-0 flex-wrap items-center gap-2">
         <p className="text-[10px] font-semibold uppercase tracking-wider text-muted">
-          Video ·{" "}
-          {videoTransport === "livekit"
-            ? "LiveKit SFU"
-            : `STOMP (${wsLabel})`}
-          {videoTransport === "p2p" && webrtcSelfRole
-            ? ` · ${webrtcSelfRole}`
-            : ""}
+          Video
         </p>
+        <Badge tone={wsState === "connected" ? "success" : "warning"}>
+          {videoTransport === "livekit" ? "LiveKit SFU" : `STOMP ${wsLabel}`}
+        </Badge>
+        {videoTransport === "p2p" && webrtcSelfRole ? (
+          <Badge tone="neutral">{webrtcSelfRole}</Badge>
+        ) : null}
       </div>
 
       {joinError ? (
@@ -153,24 +155,25 @@ export function RoomVideoPanel({
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button
+            <ToolbarButton
               type="button"
               onClick={() => void startPreview()}
-              className="rounded-xl border border-white/20 px-3 py-2 text-xs font-medium hover:bg-white/5 sm:px-4 sm:py-2.5 sm:text-sm"
+              className="sm:px-4 sm:py-2.5 sm:text-sm"
             >
               Preview devices
-            </button>
-            <button
+            </ToolbarButton>
+            <ToolbarButton
               type="button"
               onClick={() => void joinCall()}
               disabled={!canJoinCall}
-              className="inline-flex items-center gap-2 rounded-xl bg-teal-600/90 px-4 py-2 text-xs font-semibold text-white disabled:opacity-40 sm:px-5 sm:py-2.5 sm:text-sm"
+              tone="success"
+              className="sm:px-5 sm:py-2.5 sm:text-sm"
             >
               {!canJoinCall && videoTransport === "p2p" ? (
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
               ) : null}
               Join call
-            </button>
+            </ToolbarButton>
           </div>
           {mediaError ? (
             <p className="text-xs text-red-300 sm:text-sm">{mediaError}</p>
@@ -190,7 +193,7 @@ export function RoomVideoPanel({
       ) : (
         <>
           <div
-            className={`relative flex min-h-0 flex-shrink-0 overflow-hidden rounded-xl border border-white/10 bg-black/60 ${embedded ? "aspect-video max-h-[min(42vh,360px)] min-h-[140px] w-full" : "flex-1"}`}
+            className={`relative flex min-h-0 flex-shrink-0 overflow-hidden rounded-xl border border-white/10 bg-[#080c14] ${embedded ? "aspect-video max-h-[min(42vh,360px)] min-h-[140px] w-full" : "flex-1"}`}
           >
             <video
               ref={stageRef}
@@ -210,8 +213,8 @@ export function RoomVideoPanel({
               onClick={toggleAudio}
               className={`${controlBtn} ${
                 audioOn
-                  ? "border-white/20 bg-white/10"
-                  : "border-red-400/40 bg-red-500/25"
+                  ? "border-white/20 bg-white/10 hover:bg-white/15"
+                  : "border-danger/40 bg-danger/25 text-rose-100"
               }`}
               aria-label={audioOn ? "Mute" : "Unmute"}
             >
@@ -226,8 +229,8 @@ export function RoomVideoPanel({
               onClick={toggleVideo}
               className={`${controlBtn} ${
                 videoOn
-                  ? "border-white/20 bg-white/10"
-                  : "border-amber-400/40 bg-amber-500/25"
+                  ? "border-white/20 bg-white/10 hover:bg-white/15"
+                  : "border-warning/40 bg-warning/25 text-amber-100"
               }`}
               aria-label={videoOn ? "Camera off" : "Camera on"}
             >
@@ -238,33 +241,34 @@ export function RoomVideoPanel({
               )}
             </button>
             {screenSharing ? (
-              <button
+              <ToolbarButton
                 type="button"
                 onClick={stopScreenShare}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-amber-400/40 bg-amber-500/20 px-2 py-1.5 text-[11px] text-amber-100 sm:gap-2 sm:rounded-xl sm:px-4 sm:py-2 sm:text-sm"
+                tone="warning"
+                className="px-2 py-1.5 text-[11px] sm:px-4 sm:py-2 sm:text-sm"
               >
                 <Square className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 Stop share
-              </button>
+              </ToolbarButton>
             ) : (
-              <button
+              <ToolbarButton
                 type="button"
                 onClick={() => void startScreenShare()}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-white/20 bg-white/10 px-2 py-1.5 text-[11px] sm:gap-2 sm:rounded-xl sm:px-4 sm:py-2 sm:text-sm"
+                className="px-2 py-1.5 text-[11px] sm:px-4 sm:py-2 sm:text-sm"
               >
                 <MonitorUp className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 Share screen
-              </button>
+              </ToolbarButton>
             )}
-            <button
+            <ToolbarButton
               type="button"
               onClick={() => {
                 hangUp();
               }}
-              className="inline-flex items-center rounded-lg border border-white/15 px-2 py-1.5 text-[11px] text-muted hover:bg-white/5 sm:rounded-xl sm:px-4 sm:py-2 sm:text-sm"
+              className="px-2 py-1.5 text-[11px] sm:px-4 sm:py-2 sm:text-sm"
             >
               Disconnect AV
-            </button>
+            </ToolbarButton>
             <span className="ml-auto hidden font-mono text-[10px] text-muted sm:inline sm:text-[11px]">
               RTC {rtcState}
               {rtcError ? ` · ${rtcError}` : ""}

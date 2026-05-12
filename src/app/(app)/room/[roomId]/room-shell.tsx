@@ -2,7 +2,8 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { LogOut } from "lucide-react";
+import { Code2, LogOut } from "lucide-react";
+import { Badge } from "@/components/ui/Badge";
 import { ParticipantAvatarStrip } from "@/components/room/ParticipantAvatarStrip";
 import { RoomLeftRail } from "@/components/room/RoomLeftRail";
 import { RoomRightRail } from "@/components/room/RoomRightRail";
@@ -21,20 +22,26 @@ export function RoomShell({
 
   return (
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
-      <header className="flex shrink-0 flex-wrap items-center gap-3 border-b border-white/10 px-4 py-3">
-        <div className="min-w-0 flex-1">
+      <header className="flex shrink-0 flex-wrap items-center gap-3 border-b border-white/10 bg-background/90 px-4 py-3 backdrop-blur-xl">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <span className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.05] text-accent sm:flex">
+            <Code2 className="h-5 w-5" aria-hidden />
+          </span>
+          <div className="min-w-0">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-muted">
             Interview room
           </p>
-          <p className="truncate font-mono text-sm font-semibold tracking-tight">
+          <p className="truncate font-mono text-sm font-semibold tracking-tight text-muted-strong">
             {roomId}
           </p>
+          </div>
         </div>
         <ParticipantAvatarStrip />
+        <Badge tone="success" className="hidden sm:inline-flex">Live workspace</Badge>
         <div className="flex shrink-0 items-center gap-2">
           <Link
             href={siteConfig.routes.dashboard}
-            className="rounded-xl border border-white/15 px-3 py-2 text-xs font-medium text-muted transition hover:bg-white/5 hover:text-foreground"
+            className="rounded-lg border border-white/15 px-3 py-2 text-xs font-medium text-muted transition hover:bg-white/5 hover:text-foreground"
           >
             Dashboard
           </Link>
@@ -42,7 +49,7 @@ export function RoomShell({
             <button
               type="button"
               onClick={() => media.leaveRoomToDashboard()}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-red-400/35 bg-red-500/15 px-3 py-2 text-xs font-medium text-red-100 transition hover:bg-red-500/25"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-danger/35 bg-danger/15 px-3 py-2 text-xs font-medium text-rose-100 transition hover:bg-danger/25"
             >
               <LogOut className="h-3.5 w-3.5" aria-hidden />
               Leave room

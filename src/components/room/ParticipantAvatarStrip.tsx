@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo } from "react";
 import { useSyncExternalStore } from "react";
 import {
   getClientSessionSnapshot,
@@ -22,12 +21,10 @@ export function ParticipantAvatarStrip() {
   );
   const { participants, presenceNames } = useRoomSession();
 
-  const rows = useMemo(() => {
-    const ids = new Set<string>();
-    if (user?.id) ids.add(user.id);
-    participants.forEach((p) => ids.add(p.userId));
-    return Array.from(ids).slice(0, 8);
-  }, [user?.id, participants]);
+  const ids = new Set<string>();
+  if (user?.id) ids.add(user.id);
+  participants.forEach((p) => ids.add(p.userId));
+  const rows = Array.from(ids).slice(0, 8);
 
   return (
     <div className="flex max-w-[min(480px,55vw)] flex-wrap items-center justify-end gap-2">

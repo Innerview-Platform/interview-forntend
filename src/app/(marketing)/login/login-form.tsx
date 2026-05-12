@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Input } from "@/components/ui/Input";
+import { BrandLogo } from "@/components/layout/BrandLogo";
 import { apiLogin, getSafePostLoginPath } from "@/lib/auth-api";
 import { siteConfig } from "@/lib/site-config";
 
@@ -47,17 +49,22 @@ export function LoginForm() {
   }
 
   return (
-    <GlassCard className="w-full max-w-md p-8 sm:p-10">
-      <div className="mb-8 text-center">
+    <GlassCard className="w-full max-w-md p-7 sm:p-9">
+      <div className="mb-8">
         <Link
           href={siteConfig.routes.home}
-          className="text-xl font-semibold tracking-tight text-foreground"
+          className="flex items-center justify-center"
         >
-          {siteConfig.name}
+          <BrandLogo />
         </Link>
-        <p className="mt-2 text-muted">Welcome back</p>
+        <h1 className="mt-6 text-center text-2xl font-semibold tracking-tight">
+          Welcome back
+        </h1>
+        <p className="mt-2 text-center text-sm text-muted">
+          Sign in to open your dashboard and interview rooms.
+        </p>
         {justRegistered ? (
-          <p className="mt-3 rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-sm text-foreground">
+          <p className="mt-4 rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-sm text-emerald-100">
             Account created. Sign in with your email and password.
           </p>
         ) : null}
@@ -92,7 +99,7 @@ export function LoginForm() {
           </Link>
         </div>
         {error ? (
-          <p className="text-sm text-red-400" role="alert">
+          <p className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-rose-100" role="alert">
             {error}
           </p>
         ) : null}
@@ -100,6 +107,9 @@ export function LoginForm() {
           {loading ? "Signing in…" : "Login"}
         </Button>
       </form>
+      <div className="mt-6 flex justify-center">
+        <Badge tone="neutral">JWT protected workspace</Badge>
+      </div>
       <p className="mt-8 text-center text-sm text-muted">
         New here?{" "}
         <Link

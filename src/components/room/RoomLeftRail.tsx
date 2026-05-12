@@ -12,15 +12,15 @@ export function RoomLeftRail({ roomId }: { roomId: string }) {
 
   return (
     <nav
-      className="flex w-14 shrink-0 flex-col gap-1 border-r border-white/10 bg-black/20 py-4"
+      className="flex w-14 shrink-0 flex-col gap-1 border-r border-white/10 bg-surface/40 py-4"
       aria-label="Room modes"
     >
       <Link
         href={href}
-        title="Live room — editor, video, run output"
+        title="Live room - editor, video, run output"
         className={`mx-auto flex h-11 w-11 items-center justify-center rounded-xl border transition-colors ${
           active
-            ? "border-teal-400/60 bg-teal-500/20 text-teal-200"
+            ? "border-accent/60 bg-accent/15 text-violet-100"
             : "border-transparent text-muted hover:bg-white/5 hover:text-foreground"
         }`}
       >

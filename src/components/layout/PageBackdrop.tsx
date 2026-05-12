@@ -4,10 +4,9 @@ export function PageBackdrop() {
       aria-hidden
       className="pointer-events-none fixed inset-0 -z-10 overflow-hidden"
     >
-      <div className="absolute inset-0 bg-gradient-to-b from-[#0b0815] via-[#120c22] to-[#1a142e]" />
-      <div className="absolute -left-32 top-1/4 h-[480px] w-[480px] rounded-full bg-accent-strong/25 blur-[100px]" />
-      <div className="absolute -right-24 top-1/3 h-[420px] w-[420px] rounded-full bg-accent-violet/20 blur-[90px]" />
-      <div className="absolute bottom-0 left-1/2 h-[360px] w-[600px] -translate-x-1/2 rounded-full bg-accent/15 blur-[100px]" />
+      <div className="absolute inset-0 bg-[linear-gradient(135deg,#060912_0%,#0b1220_42%,#111827_100%)]" />
+      <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(124,58,237,0.12),transparent_34%,rgba(192,132,252,0.12)_72%,transparent)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(148,163,184,0.08),transparent_42%)]" />
     </div>
   );
 }

@@ -81,9 +81,9 @@ export function AppSidebar({ mobileOpen, onMobileClose }: Props) {
   }) {
     const active = !disabled && rowActive(href, href === siteConfig.routes.home);
     const base =
-      "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition";
+      "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition";
     const activeCls =
-      "border-l-2 border-violet-400 bg-violet-600/25 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]";
+      "border-l-2 border-accent bg-accent/15 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]";
     const idleCls =
       "border-l-2 border-transparent text-white/75 hover:bg-white/5 hover:text-foreground";
 
@@ -122,7 +122,7 @@ export function AppSidebar({ mobileOpen, onMobileClose }: Props) {
         }`}
       />
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-[17rem] flex-col border-r border-white/10 bg-[#0b0815]/95 backdrop-blur-xl transition-transform md:static md:z-0 md:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-[17rem] flex-col border-r border-white/10 bg-background/95 backdrop-blur-xl transition-transform md:static md:z-0 md:translate-x-0 ${
           mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         }`}
       >
@@ -168,17 +168,17 @@ export function AppSidebar({ mobileOpen, onMobileClose }: Props) {
               ))}
             </nav>
           </div>
-          <div className="mt-auto rounded-2xl border border-violet-500/25 bg-gradient-to-br from-violet-950/50 to-transparent p-4">
+          <div className="mt-auto rounded-xl border border-white/10 bg-surface-soft/70 p-4">
             <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
               <Sparkles className="h-4 w-4 text-accent" />
-              Upgrade to Pro
+              Practice toolkit
             </div>
             <p className="mt-1 text-xs leading-relaxed text-muted">
-              More mock sessions and analytics when available.
+              Analytics and scheduling controls are queued for the next product pass.
             </p>
             <button
               type="button"
-              className="mt-3 w-full rounded-xl bg-white/10 py-2 text-xs font-medium text-foreground transition hover:bg-white/15"
+              className="mt-3 w-full rounded-lg border border-white/10 bg-white/[0.05] py-2 text-xs font-medium text-muted-strong transition hover:bg-white/[0.08]"
             >
               Coming soon
             </button>

@@ -3,10 +3,12 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Input } from "@/components/ui/Input";
 import { OAuthButton } from "@/components/ui/OAuthButton";
+import { BrandLogo } from "@/components/layout/BrandLogo";
 import { apiRegister, navigateToGoogleLogin } from "@/lib/auth-api";
 import { siteConfig } from "@/lib/site-config";
 
@@ -100,15 +102,20 @@ export function SignupForm() {
   }
 
   return (
-    <GlassCard className="w-full max-w-md p-8 sm:p-10">
+    <GlassCard className="w-full max-w-md p-7 sm:p-9">
       <div className="mb-8 text-center">
         <Link
           href={siteConfig.routes.home}
-          className="text-xl font-semibold tracking-tight text-foreground"
+          className="inline-flex items-center"
         >
-          {siteConfig.name}
+          <BrandLogo />
         </Link>
-        <p className="mt-2 text-muted">Create your account</p>
+        <h1 className="mt-6 text-2xl font-semibold tracking-tight">
+          Create your account
+        </h1>
+        <p className="mt-2 text-sm text-muted">
+          Set up your profile and start interview practice.
+        </p>
       </div>
       <div className="flex flex-col gap-3">
         <OAuthButton
@@ -174,12 +181,12 @@ export function SignupForm() {
           placeholder="••••••••"
         />
         {error ? (
-          <p className="text-sm text-red-400" role="alert">
+          <p className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-rose-100" role="alert">
             {error}
           </p>
         ) : null}
         {info ? (
-          <p className="text-sm text-accent" role="status">
+          <p className="rounded-lg border border-info/30 bg-info/10 px-3 py-2 text-sm text-violet-100" role="status">
             {info}
           </p>
         ) : null}
@@ -196,6 +203,9 @@ export function SignupForm() {
           Sign in
         </Link>
       </p>
+      <div className="mt-5 flex justify-center">
+        <Badge tone="info">Google OAuth supported</Badge>
+      </div>
     </GlassCard>
   );
 }

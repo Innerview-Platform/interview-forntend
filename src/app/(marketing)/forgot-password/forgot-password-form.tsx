@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Input } from "@/components/ui/Input";
+import { BrandLogo } from "@/components/layout/BrandLogo";
 import { apiForgotPassword } from "@/lib/auth-api";
 import { siteConfig } from "@/lib/site-config";
 
@@ -32,13 +33,13 @@ export function ForgotPasswordForm() {
   }
 
   return (
-    <GlassCard className="w-full max-w-md p-8 sm:p-10">
+    <GlassCard className="w-full max-w-md p-7 sm:p-9">
       <div className="mb-8 text-center">
         <Link
           href={siteConfig.routes.home}
-          className="text-xl font-semibold tracking-tight text-foreground"
+          className="inline-flex items-center"
         >
-          {siteConfig.name}
+          <BrandLogo />
         </Link>
         <h1 className="mt-4 text-lg font-semibold text-foreground">
           Reset your password
@@ -58,7 +59,7 @@ export function ForgotPasswordForm() {
       </div>
       {successMessage ? (
         <div className="rounded-xl border border-accent/30 bg-accent/10 p-4 text-center text-sm text-foreground">
-          <p className="font-medium text-accent">Done</p>
+          <p className="font-medium text-success">Done</p>
           <p className="mt-2 text-muted">{successMessage}</p>
           <Link
             href={siteConfig.routes.login}
@@ -80,7 +81,7 @@ export function ForgotPasswordForm() {
             placeholder="you@example.com"
           />
           {error ? (
-            <p className="text-sm text-red-400" role="alert">
+            <p className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-rose-100" role="alert">
               {error}
             </p>
           ) : null}

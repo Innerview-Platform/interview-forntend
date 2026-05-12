@@ -2,6 +2,7 @@
 
 import type { FeedbackItem } from "@/lib/profile-api";
 import { GlassCard } from "@/components/ui/GlassCard";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 type Props = {
   items: FeedbackItem[];
@@ -15,7 +16,11 @@ export function RecentFeedbackCard({ items, max = 4 }: Props) {
     <GlassCard className="p-6">
       <h3 className="text-sm font-semibold text-foreground">Recent feedback</h3>
       {slice.length === 0 ? (
-        <p className="mt-3 text-xs text-muted">No feedback received yet.</p>
+        <EmptyState
+          className="mt-4 px-4 py-5"
+          title="No feedback yet"
+          description="Feedback from completed sessions will land here."
+        />
       ) : (
         <ul className="mt-4 space-y-3">
           {slice.map((f, i) => (

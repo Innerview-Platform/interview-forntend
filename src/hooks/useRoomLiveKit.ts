@@ -95,7 +95,10 @@ export function useRoomLiveKit({
 
   const roomRef = useRef<Room | null>(null);
   const mediaRef = useRef({ cameraEnabled, micEnabled });
-  mediaRef.current = { cameraEnabled, micEnabled };
+
+  useEffect(() => {
+    mediaRef.current = { cameraEnabled, micEnabled };
+  }, [cameraEnabled, micEnabled]);
 
   const clearStreams = useCallback(() => {
     setLocalStream(null);
@@ -130,9 +133,11 @@ export function useRoomLiveKit({
         existing.disconnect();
         roomRef.current = null;
       }
-      clearStreams();
-      setRtcState("idle");
-      setRtcError(null);
+      queueMicrotask(() => {
+        clearStreams();
+        setRtcState("idle");
+        setRtcError(null);
+      });
       return;
     }
 

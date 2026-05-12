@@ -2,6 +2,8 @@
 
 import type { InterviewHistoryItem, PreferredRole } from "@/lib/profile-api";
 import { GlassCard } from "@/components/ui/GlassCard";
+import { Badge } from "@/components/ui/Badge";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 const roleLabels: Record<PreferredRole, string> = {
   INTERVIEWER: "Interviewer",
@@ -27,7 +29,11 @@ export function InterviewHistoryTable({ rows }: Props) {
     return (
       <GlassCard className="p-6 sm:p-8">
         <h2 className="text-lg font-semibold text-foreground">Interview history</h2>
-        <p className="mt-2 text-sm text-muted">No interviews yet.</p>
+        <EmptyState
+          className="mt-4"
+          title="No interviews yet"
+          description="Start or join a live room from the dashboard. Completed sessions will appear here when the API returns them."
+        />
       </GlassCard>
     );
   }
@@ -64,20 +70,20 @@ export function InterviewHistoryTable({ rows }: Props) {
                   </div>
                 </td>
                 <td className="px-4 py-4 text-muted">
-                  {row.start_time ?? "—"}
+                  {row.start_time ?? "-"}
                 </td>
                 <td className="px-4 py-4 text-muted">
-                  {row.duration_minutes != null ? `${row.duration_minutes} min` : "—"}
+                  {row.duration_minutes != null ? `${row.duration_minutes} min` : "-"}
                 </td>
                 <td className="px-4 py-4">
-                  <span className="inline-flex rounded-full border border-white/15 bg-white/5 px-2.5 py-0.5 text-xs font-medium text-foreground">
+                  <Badge tone="neutral">
                     {labelRole(row.role)}
-                  </span>
+                  </Badge>
                 </td>
                 <td className="px-6 py-4 sm:pr-8">
-                  <span className="inline-flex rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-200">
+                  <Badge tone="success">
                     Completed
-                  </span>
+                  </Badge>
                 </td>
               </tr>
             ))}

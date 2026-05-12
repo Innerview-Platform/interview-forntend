@@ -62,10 +62,19 @@ const AUTH_ROUTE_BASES = new Set<string>([
   siteConfig.routes.resetPassword,
 ]);
 
+/** Same-origin return path only (leading slash, no scheme). */
+export function buildLoginUrlWithNext(returnPath: string): string {
+  let path = returnPath.trim() || "/";
+  if (!path.startsWith("/")) path = `/${path}`;
+  if (path.startsWith("//")) path = "/";
+  return `${siteConfig.routes.login}?next=${encodeURIComponent(path)}`;
+}
+
 /**
- * If the API responds 401: clear storage and navigate to login (full page load).
- * Skips redirect when already on auth/marketing signup flows to avoid loops.
- * @returns true if navigation was triggered (caller should abort).
+ * If the API responds 401: clear client session only. `RequireAuth` performs a single
+ * `location.replace` to login with `next` so we avoid double navigation (assign + router).
+ * Skips when already on auth routes to avoid loops.
+ * @returns true if session was cleared (caller should abort).
  */
 export function redirectIfUnauthorizedResponse(res: Response): boolean {
   if (res.status !== 401 || typeof window === "undefined") return false;
@@ -73,22 +82,18 @@ export function redirectIfUnauthorizedResponse(res: Response): boolean {
   if (AUTH_ROUTE_BASES.has(pathname)) return false;
 
   clearClientSession();
-  const next = encodeURIComponent(
-    `${window.location.pathname}${window.location.search}`,
-  );
-  window.location.assign(`${siteConfig.routes.login}?next=${next}`);
   return true;
 }
 
 /** Call after authenticated `fetch`; throws if redirect was triggered. */
 export function throwRedirectingIfUnauthorized(res: Response): void {
   if (redirectIfUnauthorizedResponse(res)) {
-    throw new Error("Unauthorized — redirecting to sign in.");
+    throw new Error("Unauthorized - redirecting to sign in.");
   }
 }
 
 /**
- * Validates `next` query after login/signup — same-origin paths only (no protocol-relative).
+ * Validates `next` query after login/signup - same-origin paths only (no protocol-relative).
  */
 export function getSafePostLoginPath(nextRaw: string | null | undefined): string {
   const fallback = siteConfig.routes.dashboard;
@@ -254,6 +259,12 @@ export async function apiResetPassword(payload: {
   };
 }
 
+/**
+ * Refresh endpoint expects a refresh token in the JSON body; the login cookie is
+ * httpOnly at path `/api/auth`, so the browser cannot read it to call this from
+ * client JS. Prefer JWT `exp` handling in RequireAuth + 401 session clear until
+ * the backend exposes cookie-only refresh or returns refresh in a client-readable way.
+ */
 export async function apiRefresh(refreshToken: string): Promise<{
   access_token: string;
   refresh_token: string;

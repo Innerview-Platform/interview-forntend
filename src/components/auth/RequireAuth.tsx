@@ -1,52 +1,41 @@
 "use client";
 
-import { useRouter, usePathname } from "next/navigation";
-import { type ReactNode, useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
+import { type ReactNode, useEffect } from "react";
 import { useSyncExternalStore } from "react";
+import { buildLoginUrlWithNext, clearClientSession } from "@/lib/auth-api";
 import {
   getClientSessionSnapshot,
   getServerClientSessionSnapshot,
   subscribeClientSession,
 } from "@/lib/client-session";
-import { siteConfig } from "@/lib/site-config";
+import { isAccessTokenExpired } from "@/lib/jwt-expiry";
 
 /**
- * Guards `(app)` routes: no access token → redirect to login with `next` return URL.
- * Uses a mounted gate to avoid SSR/client hydration mismatches with localStorage.
+ * Guards `(app)` routes: requires access token, user id, and a JWT that is not past `exp`.
+ * On failure: clears stale storage and performs one `location.replace` to login with `next`
+ * (same URL shape as post-401 flow — API handlers only clear session).
  */
 export function RequireAuth({ children }: { children: ReactNode }) {
-  const router = useRouter();
   const pathname = usePathname();
-  const [mounted, setMounted] = useState(false);
   const { token, user } = useSyncExternalStore(
     subscribeClientSession,
     getClientSessionSnapshot,
     getServerClientSessionSnapshot,
   );
 
-  useEffect(() => setMounted(true), []);
+  const jwtExpired = Boolean(token && isAccessTokenExpired(token));
+  const authed = Boolean(token && user?.id && !jwtExpired);
 
   useEffect(() => {
-    if (!mounted) return;
-    if (token && user?.id) return;
-    const here =
-      typeof window !== "undefined"
-        ? `${window.location.pathname}${window.location.search}`
-        : pathname;
-    router.replace(
-      `${siteConfig.routes.login}?next=${encodeURIComponent(here)}`,
-    );
-  }, [mounted, token, user?.id, pathname, router]);
+    if (typeof window === "undefined") return;
+    if (authed) return;
+    const here = `${window.location.pathname}${window.location.search}`;
+    clearClientSession();
+    window.location.replace(buildLoginUrlWithNext(here));
+  }, [authed, pathname]);
 
-  if (!mounted) {
-    return (
-      <div className="flex min-h-dvh items-center justify-center bg-background text-sm text-muted">
-        Loading…
-      </div>
-    );
-  }
-
-  if (!token || !user?.id) {
+  if (!authed) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-background text-sm text-muted">
         Redirecting to sign in…

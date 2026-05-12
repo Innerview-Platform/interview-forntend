@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAppShell } from "@/components/app/app-shell-context";
 import { AvailabilityCard } from "@/components/profile/AvailabilityCard";
@@ -12,7 +12,7 @@ import { SkillsSection } from "@/components/profile/SkillsSection";
 import { StatCardsRow } from "@/components/profile/StatCardsRow";
 import { Button } from "@/components/ui/Button";
 import { GlassCard } from "@/components/ui/GlassCard";
-import { getStoredAccessToken, getStoredUser } from "@/lib/auth-api";
+import { buildLoginUrlWithNext, getStoredAccessToken, getStoredUser } from "@/lib/auth-api";
 import {
   apiAddMyLanguage,
   apiCreateLanguage,
@@ -39,8 +39,6 @@ import {
   type SpringPage,
   type UserRatingDto,
 } from "@/lib/profile-api";
-import { siteConfig } from "@/lib/site-config";
-
 const experienceLabels: Record<ExperienceLevel, string> = {
   STUDENT: "Student",
   FRESH_GRADUATE: "Fresh graduate",
@@ -117,7 +115,8 @@ function preferredRolePill(role: PreferredRole): string {
 }
 
 export function ProfileView() {
-  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { setHeaderAvatarUrl } = useAppShell();
   const editSectionRef = useRef<HTMLDivElement>(null);
 
@@ -191,7 +190,9 @@ export function ProfileView() {
     setUserId(u?.id ?? null);
     setUserEmail(u?.email ?? "");
     if (!t || !u?.id) {
-      router.replace(siteConfig.routes.login);
+      const q = searchParams.toString();
+      const returnTo = `${pathname}${q ? `?${q}` : ""}`;
+      window.location.replace(buildLoginUrlWithNext(returnTo));
       return;
     }
     let cancelled = false;
@@ -222,7 +223,7 @@ export function ProfileView() {
     return () => {
       cancelled = true;
     };
-  }, [router, refreshLanguages, refreshInsights]);
+  }, [refreshLanguages, refreshInsights, pathname, searchParams]);
 
   useEffect(() => {
     const resolved =
@@ -423,7 +424,7 @@ export function ProfileView() {
       value:
         rating && rating.total_reviews > 0
           ? rating.average_rating.toFixed(1)
-          : "—",
+          : "-",
       hint:
         rating && rating.total_reviews > 0
           ? `${rating.total_reviews} review${rating.total_reviews === 1 ? "" : "s"}`
@@ -431,7 +432,7 @@ export function ProfileView() {
     },
     {
       label: "Total reviews",
-      value: rating ? String(rating.total_reviews) : "—",
+      value: rating ? String(rating.total_reviews) : "-",
       hint: "All-time feedback count",
     },
     {
@@ -450,12 +451,15 @@ export function ProfileView() {
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-5 sm:py-10">
-      <div className="mb-2">
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted">
+      <div className="mb-6">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
           Profile
         </p>
-        <p className="mt-1 text-sm text-muted">
-          Dashboard view · session data from your last login.
+        <h1 className="mt-1 text-3xl font-semibold tracking-tight text-foreground">
+          Your interview identity
+        </h1>
+        <p className="mt-2 max-w-2xl text-sm text-muted">
+          Keep your practice goals, languages, and recent signal easy for partners to scan.
         </p>
       </div>
 
@@ -606,7 +610,7 @@ export function ProfileView() {
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
                   rows={4}
-                  className="rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-foreground"
+                  className="rounded-lg border border-white/15 bg-surface-soft/75 px-3 py-2 text-foreground outline-none focus:border-accent/50 focus:ring-2 focus:ring-accent/25"
                   placeholder="Tell others about your background…"
                 />
               </label>
@@ -616,7 +620,7 @@ export function ProfileView() {
                 <input
                   value={imageUrl}
                   onChange={(e) => setImageUrl(e.target.value)}
-                  className="rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-foreground"
+                  className="rounded-lg border border-white/15 bg-surface-soft/75 px-3 py-2 text-foreground outline-none focus:border-accent/50 focus:ring-2 focus:ring-accent/25"
                   placeholder="https://…"
                 />
               </label>
@@ -647,6 +651,7 @@ export function ProfileView() {
                     type="button"
                     variant="outline"
                     disabled={saving}
+                    className="border-danger/35 text-rose-100 hover:bg-danger/10"
                     onClick={handleDelete}
                   >
                     Delete profile

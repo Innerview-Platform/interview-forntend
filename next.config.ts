@@ -15,7 +15,7 @@ const nextConfig: NextConfig = {
   /** Consistent CJS/ESM handling for the CRDT package. */
   transpilePackages: ["yjs", "monaco-editor", "y-monaco"],
   turbopack: {
-    /** Relative path only — Turbopack does not resolve absolute Windows paths for aliases yet. */
+    /** Relative path only - Turbopack does not resolve absolute Windows paths for aliases yet. */
     resolveAlias: {
       yjs: "./node_modules/yjs",
     },

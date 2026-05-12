@@ -22,7 +22,7 @@ export type LiveKitTokenResponse = {
 };
 
 /**
- * Fetches a LiveKit room JWT from the API (NEEDproc endpoint — see `_helper/Wanted_Endpoints/livekit_token.md`).
+ * Fetches a LiveKit room JWT from the API (NEEDproc endpoint - see `_helper/Wanted_Endpoints/livekit_token.md`).
  */
 export async function fetchLiveKitAccessToken(params: {
   roomName: string;

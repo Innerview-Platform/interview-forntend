@@ -138,10 +138,12 @@ export function RoomMediaProvider({
   /** Drop gUM preview once LiveKit publishes local camera/mic. */
   useEffect(() => {
     if (videoTransport !== "livekit" || !liveKitLocalStream) return;
-    setLocalStream((prev) => {
-      if (!prev) return null;
-      prev.getTracks().forEach((t) => t.stop());
-      return null;
+    queueMicrotask(() => {
+      setLocalStream((prev) => {
+        if (!prev) return null;
+        prev.getTracks().forEach((t) => t.stop());
+        return null;
+      });
     });
   }, [videoTransport, liveKitLocalStream]);
 

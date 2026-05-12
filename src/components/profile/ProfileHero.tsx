@@ -1,6 +1,7 @@
 "use client";
 
 import { Share2 } from "lucide-react";
+import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 
 export type ProfileHeroProps = {
@@ -35,36 +36,36 @@ export function ProfileHero({
   const levelLabel = Math.min(99, Math.max(1, Math.round(completenessPercent / 12)));
 
   return (
-    <section className="relative overflow-hidden rounded-3xl border border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
+    <section className="relative overflow-hidden rounded-2xl border border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
       <div
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_20%_-20%,rgba(124,58,237,0.45),transparent),radial-gradient(ellipse_60%_50%_at_85%_20%,rgba(192,132,252,0.28),transparent),linear-gradient(to_bottom_right,rgba(26,20,46,0.92),rgba(11,8,21,0.96),transparent)]"
+        className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(17,24,39,0.96),rgba(8,13,24,0.98)_55%,rgba(30,41,59,0.82))]"
         aria-hidden
       />
       <div className="relative px-6 pb-8 pt-8 sm:px-10 sm:pb-10 sm:pt-10">
         <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-10">
           <div className="flex shrink-0 flex-col items-center gap-4 sm:flex-row sm:items-start lg:flex-col lg:items-center">
             <div className="relative">
-              <div className="absolute -inset-1 rounded-full bg-gradient-to-br from-violet-400 via-accent to-accent-strong opacity-80 blur-md" />
+              <div className="absolute -inset-1 rounded-full bg-accent/25 blur-md" />
               {imageSrc ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={imageSrc}
                   alt=""
-                  className="relative h-28 w-28 rounded-full object-cover shadow-xl ring-2 ring-violet-500 sm:h-32 sm:w-32"
+                  className="relative h-28 w-28 rounded-full object-cover shadow-xl ring-2 ring-white/15 sm:h-32 sm:w-32"
                 />
               ) : (
-                <div className="relative flex h-28 w-28 items-center justify-center rounded-full bg-gradient-to-br from-violet-700 to-accent-strong text-xl font-bold text-white shadow-xl ring-2 ring-violet-500 sm:h-32 sm:w-32">
+                <div className="relative flex h-28 w-28 items-center justify-center rounded-full bg-gradient-to-br from-slate-700 to-accent text-xl font-bold text-white shadow-xl ring-2 ring-white/15 sm:h-32 sm:w-32">
                   {initials}
                 </div>
               )}
             </div>
             <div className="flex flex-col items-center text-center sm:items-start sm:text-left lg:items-center lg:text-center">
-              <span className="inline-flex items-center rounded-full border border-white/15 bg-black/25 px-3 py-1 text-xs font-medium text-violet-200 backdrop-blur">
+              <span className="inline-flex items-center rounded-full border border-white/15 bg-black/25 px-3 py-1 text-xs font-medium text-muted-strong backdrop-blur">
                 Level {levelLabel} · {completenessPercent}% complete
               </span>
               <div className="mt-3 h-1.5 w-40 overflow-hidden rounded-full bg-white/10 lg:w-48">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-violet-500 to-accent"
+                  className="h-full rounded-full bg-gradient-to-r from-accent-violet to-accent"
                   style={{ width: `${completenessPercent}%` }}
                 />
               </div>
@@ -76,7 +77,7 @@ export function ProfileHero({
                 <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
                   {displayName}
                 </h1>
-                <p className="mt-1 text-sm text-violet-200/90">{handle}</p>
+                <p className="mt-1 text-sm text-violet-200">{handle}</p>
               </div>
               <div className="flex flex-wrap gap-2">
                 <Button type="button" onClick={onEditProfile}>
@@ -112,12 +113,12 @@ export function ProfileHero({
               </div>
             </dl>
             <div className="mt-5 flex flex-wrap gap-2">
-              <span className="rounded-full border border-emerald-500/35 bg-emerald-500/15 px-3 py-1 text-xs font-medium text-emerald-200">
+              <Badge tone="success">
                 Active
-              </span>
-              <span className="rounded-full border border-violet-500/35 bg-violet-500/15 px-3 py-1 text-xs font-medium text-violet-100">
+              </Badge>
+              <Badge tone="accent">
                 {preferredRolePill}
-              </span>
+              </Badge>
             </div>
           </div>
         </div>

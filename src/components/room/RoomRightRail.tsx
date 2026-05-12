@@ -14,7 +14,7 @@ import {
 } from "@/lib/user-color";
 import { canonicalUserKey, sameUserIdentity } from "@/lib/user-id";
 
-/** Slim strip + expandable panel — default collapsed so the editor keeps full width. */
+/** Slim strip + expandable panel - default collapsed so the editor keeps full width. */
 export function RoomRightRail() {
   const [panelOpen, setPanelOpen] = useState(false);
   const [tab, setTab] = useState<"people" | "chat">("people");
@@ -33,14 +33,14 @@ export function RoomRightRail() {
   const stripBtn = (active: boolean) =>
     `flex h-10 w-10 items-center justify-center rounded-lg border transition-colors ${
       active
-        ? "border-teal-400/50 bg-teal-500/15 text-teal-200"
+        ? "border-accent/50 bg-accent/15 text-violet-100"
         : "border-transparent text-muted hover:bg-white/5 hover:text-foreground"
     }`;
 
   return (
     <div className="flex h-full min-h-0 shrink-0">
       <nav
-        className="flex w-11 shrink-0 flex-col items-center gap-1 border-l border-white/10 bg-black/30 py-2"
+        className="flex w-11 shrink-0 flex-col items-center gap-1 border-l border-white/10 bg-surface/50 py-2"
         aria-label="Participants and messages"
       >
         <button
@@ -78,7 +78,7 @@ export function RoomRightRail() {
       </nav>
 
       {panelOpen ? (
-        <aside className="flex w-[min(272px,78vw)] shrink-0 flex-col border-l border-white/10 bg-black/35">
+        <aside className="flex w-[min(272px,78vw)] shrink-0 flex-col border-l border-white/10 bg-background/92">
           <div className="flex items-center justify-between gap-2 border-b border-white/10 px-2 py-2">
             <p className="text-xs font-semibold uppercase tracking-wide text-foreground">
               {tab === "people" ? "Participants" : "Messages"}

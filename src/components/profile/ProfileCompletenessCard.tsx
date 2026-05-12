@@ -46,7 +46,7 @@ export function ProfileCompletenessCard({ percent }: { percent: number }) {
                 y2="0%"
               >
                 <stop offset="0%" stopColor="#7c3aed" />
-                <stop offset="100%" stopColor="#c084fc" />
+                <stop offset="100%" stopColor="#8b5cf6" />
               </linearGradient>
             </defs>
           </svg>
