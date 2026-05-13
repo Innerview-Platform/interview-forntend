@@ -1,4 +1,5 @@
 import { API_BASE_URL } from "@/lib/api-config";
+import { readApiErrorMessage } from "@/lib/api-error";
 import {
   getStoredAccessToken,
   throwRedirectingIfUnauthorized,
@@ -71,29 +72,6 @@ function apiPrefix(): string {
   return API_BASE_URL.replace(/\/$/, "");
 }
 
-async function readErrorMessage(res: Response): Promise<string> {
-  try {
-    const ct = res.headers.get("content-type") ?? "";
-    if (ct.includes("application/json")) {
-      const data: unknown = await res.json();
-      if (
-        data &&
-        typeof data === "object" &&
-        "error" in data &&
-        typeof (data as { error: unknown }).error === "string"
-      ) {
-        return (data as { error: string }).error;
-      }
-    } else {
-      const text = await res.text();
-      if (text) return text.slice(0, 200);
-    }
-  } catch {
-    /* ignore */
-  }
-  return `Request failed (${res.status})`;
-}
-
 function authHeaders(): HeadersInit {
   const token = getStoredAccessToken();
   const h: Record<string, string> = {};
@@ -108,7 +86,7 @@ export async function apiGetProfile(): Promise<ProfileDto | null> {
   });
   throwRedirectingIfUnauthorized(res);
   if (res.status === 404) return null;
-  if (!res.ok) throw new Error(await readErrorMessage(res));
+  if (!res.ok) throw new Error(await readApiErrorMessage(res));
   return (await res.json()) as ProfileDto;
 }
 
@@ -125,7 +103,7 @@ export async function apiCreateProfile(body: {
     body: JSON.stringify(body),
   });
   throwRedirectingIfUnauthorized(res);
-  if (!res.ok) throw new Error(await readErrorMessage(res));
+  if (!res.ok) throw new Error(await readApiErrorMessage(res));
   return (await res.json()) as ProfileDto;
 }
 
@@ -142,7 +120,7 @@ export async function apiUpdateProfile(body: {
     body: JSON.stringify(body),
   });
   throwRedirectingIfUnauthorized(res);
-  if (!res.ok) throw new Error(await readErrorMessage(res));
+  if (!res.ok) throw new Error(await readApiErrorMessage(res));
   return (await res.json()) as ProfileDto;
 }
 
@@ -153,7 +131,7 @@ export async function apiDeleteProfile(): Promise<void> {
     headers: authHeaders(),
   });
   throwRedirectingIfUnauthorized(res);
-  if (!res.ok) throw new Error(await readErrorMessage(res));
+  if (!res.ok) throw new Error(await readApiErrorMessage(res));
 }
 
 /** Backend PATCH /api/profile/image expects JSON { photoUrl } (UpdateImageRequest). */
@@ -165,7 +143,7 @@ export async function apiPatchProfilePhotoUrl(photoUrl: string): Promise<void> {
     body: JSON.stringify({ photoUrl }),
   });
   throwRedirectingIfUnauthorized(res);
-  if (!res.ok) throw new Error(await readErrorMessage(res));
+  if (!res.ok) throw new Error(await readApiErrorMessage(res));
 }
 
 export async function apiListMyLanguages(): Promise<ProgrammingLanguageDto[]> {
@@ -174,7 +152,7 @@ export async function apiListMyLanguages(): Promise<ProgrammingLanguageDto[]> {
     headers: authHeaders(),
   });
   throwRedirectingIfUnauthorized(res);
-  if (!res.ok) throw new Error(await readErrorMessage(res));
+  if (!res.ok) throw new Error(await readApiErrorMessage(res));
   return (await res.json()) as ProgrammingLanguageDto[];
 }
 
@@ -186,7 +164,7 @@ export async function apiAddMyLanguage(languageId: string): Promise<void> {
     body: JSON.stringify({ language_id: languageId }),
   });
   throwRedirectingIfUnauthorized(res);
-  if (!res.ok) throw new Error(await readErrorMessage(res));
+  if (!res.ok) throw new Error(await readApiErrorMessage(res));
 }
 
 export async function apiRemoveMyLanguage(languageId: string): Promise<void> {
@@ -196,7 +174,7 @@ export async function apiRemoveMyLanguage(languageId: string): Promise<void> {
     headers: authHeaders(),
   });
   throwRedirectingIfUnauthorized(res);
-  if (!res.ok) throw new Error(await readErrorMessage(res));
+  if (!res.ok) throw new Error(await readApiErrorMessage(res));
 }
 
 export async function apiListAllLanguages(): Promise<ProgrammingLanguageDto[]> {
@@ -205,7 +183,7 @@ export async function apiListAllLanguages(): Promise<ProgrammingLanguageDto[]> {
     headers: authHeaders(),
   });
   throwRedirectingIfUnauthorized(res);
-  if (!res.ok) throw new Error(await readErrorMessage(res));
+  if (!res.ok) throw new Error(await readApiErrorMessage(res));
   return (await res.json()) as ProgrammingLanguageDto[];
 }
 
@@ -217,7 +195,7 @@ export async function apiCreateLanguage(name: string): Promise<ProgrammingLangua
     body: JSON.stringify({ name }),
   });
   throwRedirectingIfUnauthorized(res);
-  if (!res.ok) throw new Error(await readErrorMessage(res));
+  if (!res.ok) throw new Error(await readApiErrorMessage(res));
   return (await res.json()) as ProgrammingLanguageDto;
 }
 
@@ -227,7 +205,7 @@ export async function apiGetRating(userId: string): Promise<UserRatingDto> {
     headers: authHeaders(),
   });
   throwRedirectingIfUnauthorized(res);
-  if (!res.ok) throw new Error(await readErrorMessage(res));
+  if (!res.ok) throw new Error(await readApiErrorMessage(res));
   return (await res.json()) as UserRatingDto;
 }
 
@@ -247,7 +225,7 @@ export async function apiGetInterviews(
     { credentials: "include", headers: authHeaders() },
   );
   throwRedirectingIfUnauthorized(res);
-  if (!res.ok) throw new Error(await readErrorMessage(res));
+  if (!res.ok) throw new Error(await readApiErrorMessage(res));
   return (await res.json()) as SpringPage<InterviewHistoryItem>;
 }
 
@@ -265,7 +243,7 @@ export async function apiGetFeedbackReceived(
     { credentials: "include", headers: authHeaders() },
   );
   throwRedirectingIfUnauthorized(res);
-  if (!res.ok) throw new Error(await readErrorMessage(res));
+  if (!res.ok) throw new Error(await readApiErrorMessage(res));
   return (await res.json()) as SpringPage<FeedbackItem>;
 }
 
@@ -282,6 +260,6 @@ export async function apiGetFeedbackGiven(
     { credentials: "include", headers: authHeaders() },
   );
   throwRedirectingIfUnauthorized(res);
-  if (!res.ok) throw new Error(await readErrorMessage(res));
+  if (!res.ok) throw new Error(await readApiErrorMessage(res));
   return (await res.json()) as SpringPage<FeedbackItem>;
 }

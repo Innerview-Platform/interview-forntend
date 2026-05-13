@@ -76,6 +76,7 @@ export function RoomMediaProvider({
     addRoomTopicListener,
     publishSignaling,
     webrtcSelfRole,
+    participants,
   } = useRoomSession();
 
   const videoTransport = useMemo(() => getVideoTransport(), []);
@@ -107,8 +108,7 @@ export function RoomMediaProvider({
     stopScreenShare: stopScreenShareLiveKit,
   } = useRoomLiveKit({
     enabled: videoTransport === "livekit",
-    roomName: roomId,
-    userId: user?.id ?? "",
+    roomId,
     accessToken: token,
     liveKitUrl,
     callActive: videoTransport === "livekit" && preJoinDone,
@@ -128,6 +128,7 @@ export function RoomMediaProvider({
     userId: user?.id ?? "",
     wsConnected: wsState === "connected",
     webrtcSelfRole,
+    participants,
     addRoomTopicListener,
     publishSignaling,
     localStream,

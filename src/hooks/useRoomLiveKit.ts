@@ -13,8 +13,7 @@ import { fetchLiveKitAccessToken } from "@/lib/video-config";
 
 export type UseRoomLiveKitOptions = {
   enabled: boolean;
-  roomName: string;
-  userId: string;
+  roomId: string;
   accessToken: string | null;
   liveKitUrl: string;
   callActive: boolean;
@@ -73,8 +72,7 @@ function remoteScreen(r: RemoteParticipant): MediaStream | null {
 
 export function useRoomLiveKit({
   enabled,
-  roomName,
-  userId,
+  roomId,
   accessToken,
   liveKitUrl,
   callActive,
@@ -125,8 +123,7 @@ export function useRoomLiveKit({
       !callActive ||
       !liveKitUrl ||
       !accessToken ||
-      !userId ||
-      !roomName.trim()
+      !roomId.trim()
     ) {
       const existing = roomRef.current;
       if (existing) {
@@ -182,8 +179,7 @@ export function useRoomLiveKit({
         setRtcState("connecting");
         setRtcError(null);
         const jwt = await fetchLiveKitAccessToken({
-          roomName,
-          participantIdentity: userId,
+          roomId,
           bearerToken: accessToken,
         });
         if (cancelled) return;
@@ -231,8 +227,7 @@ export function useRoomLiveKit({
     callActive,
     liveKitUrl,
     accessToken,
-    userId,
-    roomName,
+    roomId,
     clearStreams,
   ]);
 

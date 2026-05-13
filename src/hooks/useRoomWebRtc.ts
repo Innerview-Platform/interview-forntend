@@ -1,7 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { RoomSignalMessage } from "@/hooks/useSharedEditor";
+import type { RoomParticipantInfo } from "@/lib/room-api";
+import { canonicalUserKey } from "@/lib/user-id";
 
 const ICE_SERVERS: RTCIceServer[] = [
   { urls: "stun:stun.l.google.com:19302" },
@@ -53,6 +62,8 @@ export type UseRoomWebRtcOptions = {
   userId: string;
   wsConnected: boolean;
   webrtcSelfRole: "polite" | "impolite" | null;
+  /** When the server never sent `ROLE` (e.g. roster desync), derive polite/impolite from exactly one other participant. */
+  participants?: RoomParticipantInfo[];
   addRoomTopicListener: (fn: (msg: RoomSignalMessage) => void) => () => void;
   publishSignaling: (type: string, payload?: unknown) => void;
   localStream: MediaStream | null;
@@ -77,6 +88,7 @@ export function useRoomWebRtc({
   userId,
   wsConnected,
   webrtcSelfRole,
+  participants = [],
   addRoomTopicListener,
   publishSignaling,
   localStream,
@@ -100,11 +112,29 @@ export function useRoomWebRtc({
 
   const roomIdRef = useRef(roomId);
   const userIdRef = useRef(userId);
-  const selfRoleRef = useRef(webrtcSelfRole);
+  const effectiveRoleRef = useRef<"polite" | "impolite" | null>(null);
   const prevRoomIdRef = useRef<string | null>(null);
   roomIdRef.current = roomId;
   userIdRef.current = userId;
-  selfRoleRef.current = webrtcSelfRole;
+
+  const syntheticRole = useMemo((): "polite" | "impolite" | null => {
+    if (!userId.trim()) return null;
+    const others = participants.filter(
+      (p) => canonicalUserKey(p.userId) !== canonicalUserKey(userId),
+    );
+    if (others.length !== 1) return null;
+    const peer = others[0].userId;
+    return userId.toLowerCase().localeCompare(peer.toLowerCase()) < 0
+      ? "polite"
+      : "impolite";
+  }, [participants, userId]);
+
+  const effectiveRole = webrtcSelfRole ?? syntheticRole;
+
+  useLayoutEffect(() => {
+    effectiveRoleRef.current = effectiveRole;
+    politeRef.current = effectiveRole === "polite";
+  }, [effectiveRole]);
 
   const closePeer = useCallback(() => {
     makingOfferRef.current = false;
@@ -130,7 +160,7 @@ export function useRoomWebRtc({
     (stream: MediaStream) => {
       if (pcRef.current) return pcRef.current;
       const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
-      politeRef.current = webrtcSelfRole === "polite";
+      politeRef.current = effectiveRole === "polite";
 
       pc.onicecandidate = (ev) => {
         if (!ev.candidate) return;
@@ -163,12 +193,8 @@ export function useRoomWebRtc({
       pcRef.current = pc;
       return pc;
     },
-    [publishSignaling, webrtcSelfRole],
+    [publishSignaling, effectiveRole],
   );
-
-  useEffect(() => {
-    politeRef.current = webrtcSelfRole === "polite";
-  }, [webrtcSelfRole]);
 
   useEffect(() => {
     if (!enabled) {
@@ -185,7 +211,7 @@ export function useRoomWebRtc({
     const pc = ensurePc(localStream);
 
     const sendOffer = async () => {
-      if (selfRoleRef.current !== "impolite") return;
+      if (effectiveRoleRef.current !== "impolite") return;
       try {
         makingOfferRef.current = true;
         const offer = await pc.createOffer();
@@ -224,22 +250,25 @@ export function useRoomWebRtc({
       const t = msg.type;
       if (!t) return;
 
-      if (t === "REQUEST_OFFER") {
-        await sendOffer();
-        return;
-      }
-
       if (t === "ROLE") {
         const pl = parsePayload(msg);
         const target =
           typeof pl.targetUserId === "string" ? pl.targetUserId : "";
+        const rawRole = pl.role;
         const role =
-          pl.role === "polite" || pl.role === "impolite" ? pl.role : null;
+          rawRole === "polite" || rawRole === "impolite"
+            ? rawRole
+            : rawRole != null &&
+                typeof (rawRole as { name?: string }).name === "string" &&
+                ((rawRole as { name: string }).name === "polite" ||
+                  (rawRole as { name: string }).name === "impolite")
+              ? ((rawRole as { name: string }).name as "polite" | "impolite")
+              : null;
         if (
           target &&
           target.toLowerCase() !== self &&
           role === "polite" &&
-          selfRoleRef.current === "impolite"
+          effectiveRoleRef.current === "impolite"
         ) {
           await sendOffer();
         }
@@ -302,20 +331,13 @@ export function useRoomWebRtc({
 
     const unsub = addRoomTopicListener(onSignal);
 
-    let requestTimer: ReturnType<typeof setTimeout> | undefined;
-    if (webrtcSelfRole === "polite") {
-      publishSignaling("REQUEST_OFFER", {});
-      requestTimer = setTimeout(() => publishSignaling("REQUEST_OFFER", {}), 1200);
-    }
-
     let bootTimer: ReturnType<typeof setTimeout> | undefined;
-    if (webrtcSelfRole === "impolite") {
+    if (effectiveRole === "impolite") {
       bootTimer = setTimeout(() => void sendOffer(), 500);
     }
 
     return () => {
       unsub();
-      if (requestTimer) clearTimeout(requestTimer);
       if (bootTimer) clearTimeout(bootTimer);
     };
   }, [
@@ -327,7 +349,7 @@ export function useRoomWebRtc({
     ensurePc,
     publishSignaling,
     closePeer,
-    webrtcSelfRole,
+    effectiveRole,
   ]);
 
   /** Add/remove screen-share sender + renegotiate. */

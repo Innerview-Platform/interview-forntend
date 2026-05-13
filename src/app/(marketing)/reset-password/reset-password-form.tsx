@@ -46,7 +46,17 @@ export function ResetPasswordForm() {
       });
       setDone(true);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Reset failed.");
+      const msg = e instanceof Error ? e.message : "Reset failed.";
+      if (
+        msg.toLowerCase().includes("unauthorized") ||
+        msg.includes("401")
+      ) {
+        setError(
+          "The server rejected this request (often it expects a signed-in session as well as the email token). Try signing in first, or contact support if you believe reset should work from a logged-out browser.",
+        );
+      } else {
+        setError(msg);
+      }
     } finally {
       setLoading(false);
     }

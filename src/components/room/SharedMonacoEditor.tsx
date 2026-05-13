@@ -2,16 +2,9 @@
 
 import dynamic from "next/dynamic";
 import type { editor } from "monaco-editor";
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Play } from "lucide-react";
 import { MonacoBinding } from "y-monaco";
-import type { RemoteCursorState } from "@/hooks/useSharedEditor";
 import {
   PISTON_LANGS,
   type PistonLanguageId,
@@ -23,13 +16,12 @@ import {
   subscribeClientSession,
 } from "@/lib/client-session";
 import { useRoomSession } from "@/app/(app)/room/[roomId]/room-session-context";
+import { Badge } from "@/components/ui/Badge";
+import { ToolbarButton } from "@/components/ui/ToolbarButton";
 import {
   createRemoteCursorContentWidget,
   type RemoteCursorWidgetHandle,
-} from "@/components/room/remote-cursor-content-widgets";
-import { canonicalUserKey, sameUserIdentity } from "@/lib/user-id";
-import { Badge } from "@/components/ui/Badge";
-import { ToolbarButton } from "@/components/ui/ToolbarButton";
+} from "./remote-cursor-content-widgets";
 
 const MonacoEditor = dynamic(
   async () => (await import("@monaco-editor/react")).default,
@@ -52,86 +44,26 @@ export function SharedMonacoEditor() {
     compileResult,
     clearCompileResult,
     version,
-    addCursorListener,
-    publishSignaling,
     getSharedYText,
     logs,
     clearLogs,
+    publishSignaling,
+    remoteCursors,
   } = useRoomSession();
 
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const bindingRef = useRef<MonacoBinding | null>(null);
-  const cursorFlushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const remoteCursorWidgetsRef = useRef<
-    Map<string, RemoteCursorWidgetHandle>
-  >(new Map());
+  const remoteWidgetHandlesRef = useRef(
+    new Map<string, RemoteCursorWidgetHandle>(),
+  );
+  const widgetsBoundEditorRef = useRef<editor.IStandaloneCodeEditor | null>(
+    null,
+  );
+  const cursorWidgetSyncGenRef = useRef(0);
   const [editorEpoch, setEditorEpoch] = useState(0);
-
-  const [remoteCursors, setRemoteCursors] = useState<
-    Map<string, RemoteCursorState>
-  >(() => new Map());
 
   const [pistonLang, setPistonLang] =
     useState<PistonLanguageId>("python");
-
-  const displayLabel =
-    user?.email?.split("@")[0]?.slice(0, 24) ?? "You";
-
-  /** Send caret now (publishSignaling no-ops until STOMP is connected). */
-  const publishCursorFromEditor = useCallback(
-    (ed: editor.IStandaloneCodeEditor) => {
-      const pos = ed.getPosition();
-      if (!pos) return;
-      publishSignaling("CURSOR_UPDATE", {
-        line: pos.lineNumber - 1,
-        column: pos.column - 1,
-        name: displayLabel,
-      });
-    },
-    [publishSignaling, displayLabel],
-  );
-
-  /** Trailing debounce - always reset timer so bursts don’t starve updates. */
-  const scheduleCursorPublish = useCallback(
-    (ed: editor.IStandaloneCodeEditor) => {
-      if (cursorFlushTimer.current) clearTimeout(cursorFlushTimer.current);
-      cursorFlushTimer.current = setTimeout(() => {
-        cursorFlushTimer.current = null;
-        publishCursorFromEditor(ed);
-      }, 90);
-    },
-    [publishCursorFromEditor],
-  );
-
-  useEffect(
-    () => () => {
-      if (cursorFlushTimer.current) clearTimeout(cursorFlushTimer.current);
-    },
-    [],
-  );
-
-  useEffect(() => {
-    const uid = user?.id;
-    return addCursorListener((msg) => {
-      if (!msg.userId || !uid) return;
-      if (sameUserIdentity(msg.userId, uid)) return;
-      setRemoteCursors((prev) => {
-        const next = new Map(prev);
-        const key = canonicalUserKey(msg.userId);
-        next.set(key, { ...msg, userId: msg.userId });
-        return next;
-      });
-    });
-  }, [addCursorListener, user?.id]);
-
-  /** Immediate caret broadcast when connected/editor ready (avoid debounce starvation + stale wsState). */
-  useEffect(() => {
-    if (wsState !== "connected") return;
-    const ed = editorRef.current;
-    if (!ed) return;
-    publishCursorFromEditor(ed);
-    scheduleCursorPublish(ed);
-  }, [wsState, editorEpoch, publishCursorFromEditor, scheduleCursorPublish]);
 
   useEffect(() => {
     const ed = editorRef.current;
@@ -161,99 +93,125 @@ export function SharedMonacoEditor() {
 
   useEffect(() => {
     const ed = editorRef.current;
+    if (!ed) return;
+    let timer: number | null = null;
+    const sub = ed.onDidChangeCursorPosition(() => {
+      if (wsState !== "connected") return;
+      if (timer != null) return;
+      timer = window.setTimeout(() => {
+        timer = null;
+        const pos = ed.getPosition();
+        if (!pos) return;
+        const payload: { line: number; column: number; name?: string } = {
+          line: pos.lineNumber - 1,
+          column: pos.column - 1,
+        };
+        const label = user?.email?.trim();
+        if (label) payload.name = label;
+        publishSignaling("CURSOR_UPDATE", payload);
+      }, 80);
+    });
+    return () => {
+      sub.dispose();
+      if (timer != null) window.clearTimeout(timer);
+    };
+  }, [editorEpoch, wsState, publishSignaling, user?.email]);
+
+  useEffect(() => {
+    const ed = editorRef.current;
     const model = ed?.getModel();
     if (!ed || !model) return;
 
-    let cancelled = false;
+    const gen = ++cursorWidgetSyncGenRef.current;
+
     void import("monaco-editor").then((monaco) => {
-      if (cancelled) return;
+      if (gen !== cursorWidgetSyncGenRef.current) return;
 
-      const keep = new Set(remoteCursors.keys());
-      remoteCursorWidgetsRef.current.forEach((handle, userId) => {
-        if (!keep.has(userId)) {
-          handle.dispose();
-          ed.removeContentWidget(handle.widget);
-          remoteCursorWidgetsRef.current.delete(userId);
+      const handles = remoteWidgetHandlesRef.current;
+
+      if (widgetsBoundEditorRef.current !== ed) {
+        if (widgetsBoundEditorRef.current) {
+          const oldEd = widgetsBoundEditorRef.current;
+          for (const h of handles.values()) {
+            try {
+              oldEd.removeContentWidget(h.widget);
+            } catch {
+              /* editor disposed */
+            }
+            h.dispose();
+          }
+          handles.clear();
         }
-      });
+        widgetsBoundEditorRef.current = ed;
+      }
 
-      remoteCursors.forEach((state, userId) => {
-        let handle = remoteCursorWidgetsRef.current.get(userId);
-        if (!handle) {
-          handle = createRemoteCursorContentWidget(monaco, state, model);
-          ed.addContentWidget(handle.widget);
-          remoteCursorWidgetsRef.current.set(userId, handle);
+      if (wsState !== "connected") {
+        for (const h of handles.values()) {
+          try {
+            ed.removeContentWidget(h.widget);
+          } catch {
+            /* noop */
+          }
+          h.dispose();
+        }
+        handles.clear();
+        widgetsBoundEditorRef.current = null;
+        return;
+      }
+
+      const keysNow = new Set(Object.keys(remoteCursors));
+      for (const key of [...handles.keys()]) {
+        if (!keysNow.has(key)) {
+          const h = handles.get(key)!;
+          try {
+            ed.removeContentWidget(h.widget);
+          } catch {
+            /* noop */
+          }
+          h.dispose();
+          handles.delete(key);
+        }
+      }
+
+      for (const [key, state] of Object.entries(remoteCursors)) {
+        let h = handles.get(key);
+        if (!h) {
+          h = createRemoteCursorContentWidget(monaco, state, model);
+          ed.addContentWidget(h.widget);
+          handles.set(key, h);
         } else {
-          handle.update(state, model);
-          ed.layoutContentWidget(handle.widget);
+          h.update(state, model);
+          ed.layoutContentWidget(h.widget);
         }
-      });
-      requestAnimationFrame(() => {
-        if (cancelled) return;
-        remoteCursorWidgetsRef.current.forEach((h) =>
-          ed.layoutContentWidget(h.widget),
-        );
-      });
+      }
     });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [remoteCursors]);
-
-  /** After CRDT merges, reschedule caret so anchors stay consistent with the model. */
-  useEffect(() => {
-    const ed = editorRef.current;
-    if (!ed || wsState !== "connected") return;
-    scheduleCursorPublish(ed);
-  }, [version, wsState, scheduleCursorPublish]);
-
-  useEffect(() => {
-    const ed = editorRef.current;
-    if (!ed) return;
-    const scrollSub = ed.onDidScrollChange(() => {
-      remoteCursorWidgetsRef.current.forEach((h) =>
-        ed.layoutContentWidget(h.widget),
-      );
-    });
-    const layoutSub = ed.onDidLayoutChange(() => {
-      remoteCursorWidgetsRef.current.forEach((h) =>
-        ed.layoutContentWidget(h.widget),
-      );
-    });
-    return () => {
-      scrollSub.dispose();
-      layoutSub.dispose();
-    };
-  }, [editorEpoch]);
+  }, [remoteCursors, editorEpoch, wsState]);
 
   useEffect(
     () => () => {
+      cursorWidgetSyncGenRef.current += 1;
       const ed = editorRef.current;
-      remoteCursorWidgetsRef.current.forEach((handle) => {
-        handle.dispose();
-        try {
-          ed?.removeContentWidget(handle.widget);
-        } catch {
-          /* editor may be disposed */
+      const handles = remoteWidgetHandlesRef.current;
+      if (ed) {
+        for (const h of handles.values()) {
+          try {
+            ed.removeContentWidget(h.widget);
+          } catch {
+            /* noop */
+          }
+          h.dispose();
         }
-      });
-      remoteCursorWidgetsRef.current.clear();
+      }
+      handles.clear();
+      widgetsBoundEditorRef.current = null;
     },
     [],
   );
 
-  const onMount = useCallback(
-    (ed: editor.IStandaloneCodeEditor) => {
-      editorRef.current = ed;
-      setEditorEpoch((n) => n + 1);
-      ed.onDidChangeCursorPosition(() => scheduleCursorPublish(ed));
-      ed.onDidChangeCursorSelection(() => scheduleCursorPublish(ed));
-      ed.onDidFocusEditorText(() => scheduleCursorPublish(ed));
-      ed.onDidChangeModelContent(() => scheduleCursorPublish(ed));
-    },
-    [scheduleCursorPublish],
-  );
+  const onMount = useCallback((ed: editor.IStandaloneCodeEditor) => {
+    editorRef.current = ed;
+    setEditorEpoch((n) => n + 1);
+  }, []);
 
   if (!token || !user?.id) return null;
 

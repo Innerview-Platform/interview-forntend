@@ -1,11 +1,13 @@
 import { API_BASE_URL } from "@/lib/api-config";
+import { readApiErrorMessage } from "@/lib/api-error";
 import { throwRedirectingIfUnauthorized } from "@/lib/auth-api";
 
 export type VideoTransport = "p2p" | "livekit";
 
 /**
- * P2P WebRTC over STOMP (INNER-79) vs LiveKit SFU.
- * Default `p2p` until backend token + `NEXT_PUBLIC_LIVEKIT_URL` are verified.
+ * P2P WebRTC over STOMP vs LiveKit SFU.
+ * See `_helper/Documentations/features/sfu_livekit.md`.
+ * Set `NEXT_PUBLIC_VIDEO_TRANSPORT=livekit` and `NEXT_PUBLIC_LIVEKIT_URL` for SFU.
  */
 export function getVideoTransport(): VideoTransport {
   const raw = (process.env.NEXT_PUBLIC_VIDEO_TRANSPORT ?? "p2p").toLowerCase();
@@ -22,18 +24,14 @@ export type LiveKitTokenResponse = {
 };
 
 /**
- * Fetches a LiveKit room JWT from the API (NEEDproc endpoint - see `_helper/Wanted_Endpoints/livekit_token.md`).
+ * Fetches a LiveKit room JWT: `GET /api/rooms/{roomId}/token` with Bearer auth only
+ * (room id from path; see `sfu_livekit.md`).
  */
 export async function fetchLiveKitAccessToken(params: {
-  roomName: string;
-  participantIdentity: string;
+  roomId: string;
   bearerToken: string;
 }): Promise<string> {
-  const qs = new URLSearchParams({
-    roomName: params.roomName,
-    participantName: params.participantIdentity,
-  });
-  const url = `${API_BASE_URL}/api/livekit/token?${qs.toString()}`;
+  const url = `${API_BASE_URL}/api/rooms/${encodeURIComponent(params.roomId)}/token`;
   const res = await fetch(url, {
     method: "GET",
     headers: {
@@ -44,10 +42,7 @@ export async function fetchLiveKitAccessToken(params: {
   });
   throwRedirectingIfUnauthorized(res);
   if (!res.ok) {
-    const errText = await res.text().catch(() => "");
-    throw new Error(
-      errText || `LiveKit token request failed (${res.status})`,
-    );
+    throw new Error(await readApiErrorMessage(res));
   }
   const contentType = res.headers.get("content-type") ?? "";
   if (contentType.includes("application/json")) {

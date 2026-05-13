@@ -23,7 +23,7 @@ export function RoomRightRail() {
     getClientSessionSnapshot,
     getServerClientSessionSnapshot,
   );
-  const { participants, presenceNames } = useRoomSession();
+  const { participants, presenceNames, rosterLimited } = useRoomSession();
 
   const ids = new Set<string>();
   if (user?.id) ids.add(user.id);
@@ -95,9 +95,19 @@ export function RoomRightRail() {
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto p-3">
             {tab === "people" ? (
-              <ul className="space-y-2">
+              <>
+                {rosterLimited ? (
+                  <p className="mb-3 rounded-lg border border-amber-500/20 bg-amber-500/10 px-2 py-2 text-xs text-amber-100/95">
+                    This room type does not broadcast a live roster. Other
+                    participants may appear after video or signaling traffic.
+                  </p>
+                ) : null}
+                <ul className="space-y-2">
                 {list.map((id) => {
                   const self = user?.id ? sameUserIdentity(id, user.id) : false;
+                  const pMeta = participants.find((p) =>
+                    sameUserIdentity(p.userId, id),
+                  );
                   const fromPresence =
                     presenceNames[canonicalUserKey(id)] ??
                     presenceNames[id.toLowerCase()];
@@ -134,11 +144,17 @@ export function RoomRightRail() {
                         <p className="truncate font-mono text-[10px] text-muted">
                           {id}
                         </p>
+                        {pMeta?.interviewRole ? (
+                          <p className="text-[10px] uppercase tracking-wide text-muted">
+                            {pMeta.interviewRole.replace(/_/g, " ")}
+                          </p>
+                        ) : null}
                       </div>
                     </li>
                   );
                 })}
-              </ul>
+                </ul>
+              </>
             ) : (
               <div className="space-y-3 text-sm text-muted">
                 <p>Group chat is not wired to the server yet.</p>

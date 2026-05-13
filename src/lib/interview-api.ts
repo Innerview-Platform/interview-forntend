@@ -1,8 +1,12 @@
 import { API_BASE_URL } from "@/lib/api-config";
+import { readApiErrorMessage } from "@/lib/api-error";
 import {
   getStoredAccessToken,
   throwRedirectingIfUnauthorized,
 } from "@/lib/auth-api";
+import {
+  writeStoredInterviewIdForRoom,
+} from "@/lib/room-interview-session";
 
 export const INTERVIEW_TYPES = [
   "PROBLEM_SOLVING",
@@ -13,45 +17,38 @@ export const INTERVIEW_TYPES = [
 
 export const CREATOR_ROLES = ["INTERVIEWER", "INTERVIEWEE", "BOTH"] as const;
 
+export const ROOM_SIZES = ["ONE_ON_ONE", "MANY"] as const;
+
 export type InterviewType = (typeof INTERVIEW_TYPES)[number];
 export type CreatorInterviewRole = (typeof CREATOR_ROLES)[number];
+export type RoomSize = (typeof ROOM_SIZES)[number];
 
 export type InstantInterviewRequestBody = {
   interviewType: InterviewType;
+  roomSize: RoomSize;
   creatorInterviewRole: CreatorInterviewRole;
+  /** Ignored by backend today; kept for forward compatibility. */
   durationMinutes?: number;
+  /** Problem UUIDs attached to the interview (active problems only). */
+  problemIds?: string[];
+};
+
+export type ScheduledInterviewRequestBody = Omit<
+  InstantInterviewRequestBody,
+  "durationMinutes"
+> & {
+  startTime: string;
 };
 
 export type InterviewResponseDto = {
   roomId: string;
   roomLink: string;
+  /** When backend adds field; see `_helper/Wanted_Endpoints/interview_response_interview_id.md`. */
+  interviewId?: number;
 };
 
 function apiPrefix(): string {
   return API_BASE_URL.replace(/\/$/, "");
-}
-
-async function readErrorMessage(res: Response): Promise<string> {
-  try {
-    const ct = res.headers.get("content-type") ?? "";
-    if (ct.includes("application/json")) {
-      const data: unknown = await res.json();
-      if (
-        data &&
-        typeof data === "object" &&
-        "error" in data &&
-        typeof (data as { error: unknown }).error === "string"
-      ) {
-        return (data as { error: string }).error;
-      }
-    } else {
-      const text = await res.text();
-      if (text) return text.slice(0, 200);
-    }
-  } catch {
-    /* ignore */
-  }
-  return `Request failed (${res.status})`;
 }
 
 function authHeaders(): HeadersInit {
@@ -61,6 +58,27 @@ function authHeaders(): HeadersInit {
   return h;
 }
 
+function instantPayload(body: InstantInterviewRequestBody): Record<string, unknown> {
+  const out: Record<string, unknown> = {
+    interviewType: body.interviewType,
+    roomSize: body.roomSize,
+    creatorInterviewRole: body.creatorInterviewRole,
+  };
+  if (body.durationMinutes != null) {
+    out.durationMinutes = body.durationMinutes;
+  }
+  if (body.problemIds?.length) {
+    out.problemIds = body.problemIds;
+  }
+  return out;
+}
+
+function persistInterviewIdIfPresent(res: InterviewResponseDto): void {
+  if (res.interviewId != null && res.roomId) {
+    writeStoredInterviewIdForRoom(res.roomId, res.interviewId);
+  }
+}
+
 export async function apiCreateInstantInterview(
   body: InstantInterviewRequestBody,
 ): Promise<InterviewResponseDto> {
@@ -68,9 +86,31 @@ export async function apiCreateInstantInterview(
     method: "POST",
     credentials: "include",
     headers: { ...authHeaders(), "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    body: JSON.stringify(instantPayload(body)),
   });
   throwRedirectingIfUnauthorized(res);
-  if (!res.ok) throw new Error(await readErrorMessage(res));
-  return (await res.json()) as InterviewResponseDto;
+  if (!res.ok) throw new Error(await readApiErrorMessage(res));
+  const json = (await res.json()) as InterviewResponseDto;
+  persistInterviewIdIfPresent(json);
+  return json;
+}
+
+export async function apiCreateScheduledInterview(
+  body: ScheduledInterviewRequestBody,
+): Promise<InterviewResponseDto> {
+  const { startTime, ...rest } = body;
+  const res = await fetch(`${apiPrefix()}/api/interviews/scheduled`, {
+    method: "POST",
+    credentials: "include",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify({
+      ...instantPayload(rest),
+      startTime,
+    }),
+  });
+  throwRedirectingIfUnauthorized(res);
+  if (!res.ok) throw new Error(await readApiErrorMessage(res));
+  const json = (await res.json()) as InterviewResponseDto;
+  persistInterviewIdIfPresent(json);
+  return json;
 }

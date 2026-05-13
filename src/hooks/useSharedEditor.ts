@@ -5,8 +5,9 @@ import { Client } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
 import * as Y from "yjs";
 import { getWsOrigin } from "@/lib/api-config";
-import { parseJwtSubject, sameUserIdentity } from "@/lib/user-id";
+import { mapStompConnectFailureMessage } from "@/lib/stomp-connect-errors";
 import type { CompileResultPayload } from "@/lib/compile-result";
+import { canonicalUserKey } from "@/lib/user-id";
 
 export type LogEntry = {
   msg: string;
@@ -22,7 +23,7 @@ export type RoomSignalMessage = {
   type?: string;
   roomId?: string;
   senderId?: string;
-  /** Server envelopes (e.g. `PEER_WS_JOINED` from `/topic/room/{id}`). */
+  /** Server envelopes on `/topic/room/{id}` (WebRTC, disconnect, etc.). */
   userId?: string;
   payload?: unknown;
 };
@@ -34,33 +35,6 @@ export type RemoteCursorState = {
   name?: string;
 };
 
-function parseRemoteCursorMessage(body: string): RemoteCursorState | null {
-  let raw: Record<string, unknown>;
-  try {
-    raw = JSON.parse(body) as Record<string, unknown>;
-  } catch {
-    return null;
-  }
-  const userId = raw.userId;
-  if (typeof userId !== "string" || userId.length === 0) return null;
-  const lineN =
-    typeof raw.line === "number"
-      ? raw.line
-      : Number(String(raw.line ?? NaN));
-  const colN =
-    typeof raw.column === "number"
-      ? raw.column
-      : Number(String(raw.column ?? NaN));
-  if (!Number.isFinite(lineN) || !Number.isFinite(colN)) return null;
-  const name = typeof raw.name === "string" ? raw.name : undefined;
-  return {
-    userId,
-    line: Math.floor(lineN),
-    column: Math.floor(colN),
-    name,
-  };
-}
-
 export type UseSharedEditorReturn = {
   wsState: "off" | "connecting" | "connected";
   editorState: "off" | "joining" | "on";
@@ -69,21 +43,28 @@ export type UseSharedEditorReturn = {
   version: number;
   compileResult: CompileResultPayload | null;
   compileBusy: boolean;
-  /** Last ROLE signal from the server for this user (`polite` / `impolite`). Used by WebRTC after tab switches. */
+  /** Last WebRTC polite/impolite assignment for this user (`ROLE` on main topic). */
   webrtcSelfRole: "polite" | "impolite" | null;
+  /** Last STOMP CONNECT / broker error (cleared on successful connect). */
+  connectFailure: string | null;
   connect: () => void;
   disconnect: () => void;
   handleLocalChange: (newText: string) => void;
   compileCode: (opts?: CompileOptions) => void;
   clearCompileResult: () => void;
   clearLogs: () => void;
-  /** Subscribe to `/topic/room/{roomId}` (ROLE, OFFER, ICE, etc.). Call only after connected. */
+  /** Subscribe to `/topic/room/{roomId}` (ROLE, OFFER, ICE, USER_DISCONNECTED, etc.). Call only after connected. */
   addRoomTopicListener: (fn: (msg: RoomSignalMessage) => void) => () => void;
-  /** Subscribe to `/topic/room/{roomId}/cursors`. */
-  addCursorListener: (fn: (msg: RemoteCursorState) => void) => () => void;
   publishSignaling: (type: string, payload?: unknown) => void;
   /** Shared Y.Text for Monaco `MonacoBinding`; null until STOMP connected and Yjs initialized. */
   getSharedYText: () => Y.Text | null;
+  /** Last canvas snapshot JSON from `/topic/room/{roomId}/canvas` (document-only TLStoreSnapshot JSON; legacy full snapshot still accepted). */
+  canvasSnapshotJson: string;
+  /** Increments on each remote canvas message so consumers can run effects even if JSON is unchanged. */
+  canvasRemoteVersion: number;
+  sendCanvasUpdate: (snapshotJson: string) => void;
+  /** Remote carets from `/topic/room/{roomId}/cursors` (0-based line/column). Keys are `canonicalUserKey(userId)`. */
+  remoteCursors: Record<string, RemoteCursorState>;
 };
 
 function computeDelta(
@@ -147,10 +128,15 @@ export function useSharedEditor({
   const [webrtcSelfRole, setWebrtcSelfRole] = useState<
     "polite" | "impolite" | null
   >(null);
+  const [connectFailure, setConnectFailure] = useState<string | null>(null);
+  const [canvasSnapshotJson, setCanvasSnapshotJson] = useState("");
+  const [canvasRemoteVersion, setCanvasRemoteVersion] = useState(0);
+  const [remoteCursors, setRemoteCursors] = useState<
+    Record<string, RemoteCursorState>
+  >({});
 
   const stompRef = useRef<Client | null>(null);
   const roomTopicListenersRef = useRef(new Set<(msg: RoomSignalMessage) => void>());
-  const cursorListenersRef = useRef(new Set<(msg: RemoteCursorState) => void>());
   const ydocRef = useRef<Y.Doc | null>(null);
   const ytextRef = useRef<Y.Text | null>(null);
   const isApplyingRemote = useRef(false);
@@ -298,6 +284,7 @@ export function useSharedEditor({
       stompRef.current = null;
     }
     setWsState("connecting");
+    setConnectFailure(null);
     setCompileResult(null);
     initYjs("");
 
@@ -310,11 +297,16 @@ export function useSharedEditor({
         roomId,
       },
       reconnectDelay: 0,
+      /** Spring STOMP: split large bodies (e.g. tldraw snapshots) into smaller WS frames. */
+      splitLargeFrames: true,
+      maxWebSocketChunkSize: 1024 * 1024,
       onConnect: () => {
         log("STOMP connected", "ok");
         setWsState("connected");
+        setConnectFailure(null);
         setEditorState("joining");
 
+        /** Per signaling doc: subscribe all `/topic/...` channels before `JOIN`. */
         client.subscribe(`/topic/room/${roomId}/code`, (msg) => {
           try {
             const p = JSON.parse(msg.body) as {
@@ -328,27 +320,6 @@ export function useSharedEditor({
               "err",
             );
           }
-        });
-
-        client.subscribe(`/user/queue/editor-snapshot`, (msg) => {
-          try {
-            const p = JSON.parse(msg.body) as {
-              base64Vector?: string;
-              plainText?: string;
-            };
-            applyRemoteCode(p);
-            log("Editor snapshot applied (JOIN_FEATURE)", "ok");
-          } catch (e) {
-            log(
-              `Bad editor snapshot: ${e instanceof Error ? e.message : "parse error"}`,
-              "err",
-            );
-          }
-        });
-
-        client.subscribe(`/topic/room/${roomId}/ui-available`, (msg) => {
-          log(`UI feature available: ${msg.body}`, "ok");
-          if (msg.body === "SHARED_EDITOR") setEditorState("on");
         });
 
         client.subscribe(`/topic/room/${roomId}/compile-result`, (msg) => {
@@ -366,6 +337,91 @@ export function useSharedEditor({
           }
         });
 
+        client.subscribe(`/topic/room/${roomId}/canvas`, (msg) => {
+          try {
+            const p = JSON.parse(msg.body) as { snapshotJson?: string };
+            const snap = p.snapshotJson ?? "";
+            setCanvasSnapshotJson(snap);
+            setCanvasRemoteVersion((v) => v + 1);
+            log("Canvas snapshot received", "muted");
+          } catch (e) {
+            log(
+              `Bad canvas message: ${e instanceof Error ? e.message : "parse"}`,
+              "err",
+            );
+          }
+        });
+
+        client.subscribe(`/topic/room/${roomId}/cursors`, (msg) => {
+          try {
+            const o = JSON.parse(msg.body) as {
+              userId?: string;
+              line?: unknown;
+              column?: unknown;
+              name?: string;
+            };
+            const uid = typeof o.userId === "string" ? o.userId.trim() : "";
+            if (!uid) return;
+            if (canonicalUserKey(uid) === canonicalUserKey(userIdRef.current)) {
+              return;
+            }
+            const line = typeof o.line === "number" ? o.line : Number.NaN;
+            const column =
+              typeof o.column === "number" ? o.column : Number.NaN;
+            if (!Number.isFinite(line) || !Number.isFinite(column)) return;
+            const name =
+              typeof o.name === "string" && o.name.trim()
+                ? o.name.trim()
+                : undefined;
+            const key = canonicalUserKey(uid);
+            setRemoteCursors((prev) => ({
+              ...prev,
+              [key]: {
+                userId: uid,
+                line,
+                column,
+                ...(name ? { name } : {}),
+              },
+            }));
+          } catch (e) {
+            log(
+              `Bad cursors message: ${e instanceof Error ? e.message : "parse"}`,
+              "err",
+            );
+          }
+        });
+
+        client.subscribe(`/topic/room/${roomId}/ui-available`, (msg) => {
+          log(`UI feature available: ${msg.body}`, "ok");
+          if (msg.body === "SHARED_EDITOR") setEditorState("on");
+        });
+
+        client.subscribe(`/topic/room/${roomId}/roles`, (msg) => {
+          try {
+            const o = JSON.parse(msg.body) as Record<string, unknown>;
+            const uid = typeof o.userId === "string" ? o.userId : "";
+            const nr = o.newRole;
+            const newRole =
+              typeof nr === "string"
+                ? nr
+                : nr != null && typeof (nr as { name?: string }).name === "string"
+                  ? (nr as { name: string }).name
+                  : "";
+            if (!uid || !newRole) return;
+            const synthetic: RoomSignalMessage = {
+              type: "PARTICIPANT_INTERVIEW_ROLE",
+              userId: uid,
+              payload: { newRole },
+            };
+            roomTopicListenersRef.current.forEach((fn) => fn(synthetic));
+          } catch (e) {
+            log(
+              `Bad roles topic: ${e instanceof Error ? e.message : "parse"}`,
+              "err",
+            );
+          }
+        });
+
         client.subscribe(`/topic/room/${roomId}`, (msg) => {
           try {
             const raw = JSON.parse(msg.body) as RoomSignalMessage;
@@ -373,7 +429,13 @@ export function useSharedEditor({
               const pl = raw.payload as Record<string, unknown>;
               const tid =
                 typeof pl.targetUserId === "string" ? pl.targetUserId : "";
-              const r = pl.role;
+              const nr = pl.role;
+              const r =
+                nr === "polite" || nr === "impolite"
+                  ? nr
+                  : nr != null && typeof (nr as { name?: string }).name === "string"
+                    ? (nr as { name: string }).name
+                    : "";
               if (
                 tid &&
                 tid.toLowerCase() === userIdRef.current.toLowerCase() &&
@@ -382,32 +444,28 @@ export function useSharedEditor({
                 setWebrtcSelfRole(r);
               }
             }
+            if (raw.type === "USER_DISCONNECTED") {
+              const rec = raw as Record<string, unknown>;
+              const leftId =
+                typeof rec.userId === "string"
+                  ? rec.userId
+                  : typeof raw.userId === "string"
+                    ? raw.userId
+                    : "";
+              if (leftId) {
+                const k = canonicalUserKey(leftId);
+                setRemoteCursors((prev) => {
+                  if (!(k in prev)) return prev;
+                  const next = { ...prev };
+                  delete next[k];
+                  return next;
+                });
+              }
+            }
             roomTopicListenersRef.current.forEach((fn) => fn(raw));
           } catch (e) {
             log(
               `Bad room topic message: ${e instanceof Error ? e.message : "parse"}`,
-              "err",
-            );
-          }
-        });
-
-        client.subscribe(`/topic/room/${roomId}/cursors`, (msg) => {
-          try {
-            const cur = parseRemoteCursorMessage(msg.body);
-            if (!cur) return;
-            /** Server stamps `userId` from JWT; drop our own echo before UI maps. */
-            const selfPrincipal =
-              parseJwtSubject(token) ?? userIdRef.current;
-            if (
-              selfPrincipal &&
-              sameUserIdentity(cur.userId, selfPrincipal)
-            ) {
-              return;
-            }
-            cursorListenersRef.current.forEach((fn) => fn(cur));
-          } catch (e) {
-            log(
-              `Bad cursor message: ${e instanceof Error ? e.message : "parse"}`,
               "err",
             );
           }
@@ -432,10 +490,22 @@ export function useSharedEditor({
             payload: { element: "SHARED_EDITOR" },
           }),
         });
-        log("→ JOIN + JOIN_FEATURE sent", "muted");
+
+        client.publish({
+          destination: "/app/signal.send",
+          body: JSON.stringify({
+            type: "JOIN_FEATURE",
+            roomId,
+            senderId: userId,
+            payload: { element: "SYSTEM_CANVAS" },
+          }),
+        });
+        log("→ JOIN + JOIN_FEATURE (editor + canvas) sent", "muted");
       },
       onStompError: (frame) => {
-        log(`STOMP error: ${frame.headers?.message || frame.body}`, "err");
+        const raw = `${frame.headers?.message ?? ""} ${frame.body ?? ""}`.trim();
+        log(`STOMP error: ${raw || "(no details)"}`, "err");
+        setConnectFailure(mapStompConnectFailureMessage(raw));
         setWsState("off");
         setCompileBusy(false);
       },
@@ -445,9 +515,19 @@ export function useSharedEditor({
         setEditorState("off");
         setCompileBusy(false);
       },
-      onWebSocketClose: () => {
+      onWebSocketClose: (ev: CloseEvent) => {
         setWsState("off");
         setCompileBusy(false);
+        if (ev.reason) {
+          setConnectFailure(mapStompConnectFailureMessage(String(ev.reason)));
+        }
+      },
+      onWebSocketError: (ev: Event) => {
+        const msg =
+          ev instanceof ErrorEvent && ev.message
+            ? ev.message
+            : "WebSocket error before connect.";
+        setConnectFailure(mapStompConnectFailureMessage(msg));
       },
     });
 
@@ -471,6 +551,10 @@ export function useSharedEditor({
     setEditorState("off");
     setCompileBusy(false);
     setWebrtcSelfRole(null);
+    setConnectFailure(null);
+    setCanvasSnapshotJson("");
+    setCanvasRemoteVersion(0);
+    setRemoteCursors({});
   }, []);
 
   const compileCode = useCallback(
@@ -513,21 +597,25 @@ export function useSharedEditor({
 
   const clearLogs = useCallback(() => setLogs([]), []);
 
+  const sendCanvasUpdate = useCallback((snapshotJson: string) => {
+    const client = stompRef.current;
+    if (!client?.connected) return;
+    client.publish({
+      destination: "/app/signal.send",
+      body: JSON.stringify({
+        type: "CANVAS_UPDATE",
+        roomId: roomIdRef.current,
+        senderId: userIdRef.current,
+        payload: { snapshotJson },
+      }),
+    });
+  }, []);
+
   const addRoomTopicListener = useCallback(
     (fn: (msg: RoomSignalMessage) => void) => {
       roomTopicListenersRef.current.add(fn);
       return () => {
         roomTopicListenersRef.current.delete(fn);
-      };
-    },
-    [],
-  );
-
-  const addCursorListener = useCallback(
-    (fn: (msg: RemoteCursorState) => void) => {
-      cursorListenersRef.current.add(fn);
-      return () => {
-        cursorListenersRef.current.delete(fn);
       };
     },
     [],
@@ -562,6 +650,7 @@ export function useSharedEditor({
     compileResult,
     compileBusy,
     webrtcSelfRole,
+    connectFailure,
     connect,
     disconnect,
     handleLocalChange,
@@ -569,8 +658,11 @@ export function useSharedEditor({
     clearCompileResult,
     clearLogs,
     addRoomTopicListener,
-    addCursorListener,
     publishSignaling,
     getSharedYText,
+    canvasSnapshotJson,
+    canvasRemoteVersion,
+    sendCanvasUpdate,
+    remoteCursors,
   };
 }

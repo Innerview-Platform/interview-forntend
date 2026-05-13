@@ -1,7 +1,7 @@
 import { Cpu, Layers, ShieldCheck, Sparkles } from "lucide-react";
 import { AbstractGlassMesh } from "@/components/home/marketing-visual-fallback";
 
-const capabilities = ["Shared editor", "Video-ready", "Live run output"];
+const capabilities = ["Shared editor", "Video-ready", "Live run output", "Problems"];
 
 const pillars = [
   {
@@ -12,7 +12,7 @@ const pillars = [
   {
     icon: Cpu,
     label: "Engineering-native",
-    detail: "Monaco, Yjs deltas, websocket compile fan-out.",
+    detail: "Monaco + Yjs code sync; compile results fan out on STOMP.",
   },
   {
     icon: ShieldCheck,

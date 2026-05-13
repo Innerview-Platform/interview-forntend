@@ -23,7 +23,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} h-full antialiased`}>
+    <html
+      lang="en"
+      className={`${inter.variable} h-full antialiased dark`}
+      suppressHydrationWarning
+    >
       <body className="relative min-h-full overflow-x-hidden bg-background font-sans text-foreground">
         <PageBackdrop />
         {children}

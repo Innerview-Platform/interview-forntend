@@ -1,31 +1,9 @@
 import { API_BASE_URL } from "@/lib/api-config";
+import { readApiErrorMessage } from "@/lib/api-error";
 import { getStoredAccessToken, throwRedirectingIfUnauthorized } from "@/lib/auth-api";
 
 function apiPrefix(): string {
   return API_BASE_URL.replace(/\/$/, "");
-}
-
-async function readErrorMessage(res: Response): Promise<string> {
-  try {
-    const ct = res.headers.get("content-type") ?? "";
-    if (ct.includes("application/json")) {
-      const data: unknown = await res.json();
-      if (
-        data &&
-        typeof data === "object" &&
-        "error" in data &&
-        typeof (data as { error: unknown }).error === "string"
-      ) {
-        return (data as { error: string }).error;
-      }
-    } else {
-      const text = await res.text();
-      if (text) return text.slice(0, 200);
-    }
-  } catch {
-    /* ignore */
-  }
-  return `Request failed (${res.status})`;
 }
 
 function authHeaders(): HeadersInit {
@@ -42,9 +20,11 @@ export type ActiveRoomDto = {
   participants?: unknown;
 };
 
-/** Parsed from `ActiveRoomDto.participants` (Jackson serializes map entries). */
+/** Built from STOMP `ROLE` / `/roles` / roster signals (not REST join). */
 export type RoomParticipantInfo = {
   userId: string;
+  /** From `/topic/room/{id}/roles` when owner sends `ROLE_UPDATE`. */
+  interviewRole?: string;
 };
 
 export function parseRoomParticipants(raw: unknown): RoomParticipantInfo[] {
@@ -59,20 +39,6 @@ export function parseRoomParticipants(raw: unknown): RoomParticipantInfo[] {
   return out;
 }
 
-export async function apiJoinRoom(roomId: string): Promise<ActiveRoomDto> {
-  const res = await fetch(
-    `${apiPrefix()}/api/rooms/${encodeURIComponent(roomId)}/join`,
-    {
-      method: "POST",
-      credentials: "include",
-      headers: authHeaders(),
-    },
-  );
-  throwRedirectingIfUnauthorized(res);
-  if (!res.ok) throw new Error(await readErrorMessage(res));
-  return (await res.json()) as ActiveRoomDto;
-}
-
 export async function apiLeaveRoom(roomId: string): Promise<void> {
   const res = await fetch(
     `${apiPrefix()}/api/rooms/${encodeURIComponent(roomId)}/leave`,
@@ -83,5 +49,5 @@ export async function apiLeaveRoom(roomId: string): Promise<void> {
     },
   );
   throwRedirectingIfUnauthorized(res);
-  if (!res.ok) throw new Error(await readErrorMessage(res));
+  if (!res.ok) throw new Error(await readApiErrorMessage(res));
 }

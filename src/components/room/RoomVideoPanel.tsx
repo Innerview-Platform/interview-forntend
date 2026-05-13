@@ -39,7 +39,11 @@ export function RoomVideoPanel({
     getClientSessionSnapshot,
     getServerClientSessionSnapshot,
   );
-  const { wsState, webrtcSelfRole } = useRoomSession();
+  const {
+    wsState,
+    webrtcSelfRole,
+    participants,
+  } = useRoomSession();
   const media = useRoomMedia();
   const stageRef = useRef<HTMLVideoElement>(null);
 
@@ -76,11 +80,13 @@ export function RoomVideoPanel({
       el.srcObject = remoteScreenStream;
     } else if (remoteStream) {
       el.srcObject = remoteStream;
+    } else if (localStream) {
+      el.srcObject = localStream;
     } else {
       el.srcObject = null;
     }
     void el.play().catch(() => {});
-  }, [localScreenStream, remoteScreenStream, remoteStream]);
+  }, [localScreenStream, remoteScreenStream, remoteStream, localStream]);
 
   useEffect(() => {
     bindStage();
@@ -104,9 +110,13 @@ export function RoomVideoPanel({
       ? "Peer screen"
       : remoteStream
         ? "Peer video"
-        : rtcState === "connecting"
-          ? "Connecting…"
-          : "Waiting for peer…";
+        : localStream
+          ? rtcState === "connecting"
+            ? "You · connecting…"
+            : "You"
+          : rtcState === "connecting"
+            ? "Connecting…"
+            : "Waiting for peer…";
 
   const controlBtn =
     embedded
@@ -128,8 +138,10 @@ export function RoomVideoPanel({
         <Badge tone={wsState === "connected" ? "success" : "warning"}>
           {videoTransport === "livekit" ? "LiveKit SFU" : `STOMP ${wsLabel}`}
         </Badge>
-        {videoTransport === "p2p" && webrtcSelfRole ? (
-          <Badge tone="neutral">{webrtcSelfRole}</Badge>
+        {videoTransport === "p2p" ? (
+          <Badge tone={webrtcSelfRole ? "neutral" : "warning"}>
+            {webrtcSelfRole ?? "RTC role pending"}
+          </Badge>
         ) : null}
       </div>
 
@@ -137,6 +149,18 @@ export function RoomVideoPanel({
         <GlassCard className="border-red-500/25 p-3 text-sm text-red-200 lg:p-4">
           {joinError}
         </GlassCard>
+      ) : null}
+
+      {videoTransport === "p2p" &&
+      preJoinDone &&
+      !webrtcSelfRole &&
+      participants.length < 2 ? (
+        <p className="text-[11px] leading-snug text-muted">
+          P2P video needs two people in the room (or a server <code className="rounded bg-black/40 px-1">ROLE</code>{" "}
+          assignment). You should still see your own camera below while connecting. For production networks behind
+          strict NAT, configure TURN or use LiveKit (
+          <code className="rounded bg-black/40 px-1">NEXT_PUBLIC_VIDEO_TRANSPORT=livekit</code>).
+        </p>
       ) : null}
 
       {!preJoinDone ? (
@@ -200,7 +224,7 @@ export function RoomVideoPanel({
               className={StageVideoClass}
               playsInline
               autoPlay
-              muted={!!localScreenStream}
+              muted={!!localScreenStream || !remoteStream}
             />
             <div className="pointer-events-none absolute bottom-2 left-2 rounded-md bg-black/65 px-1.5 py-0.5 text-[10px] text-white sm:bottom-3 sm:left-3 sm:rounded-lg sm:px-2 sm:py-1 sm:text-[11px]">
               {stageLabel}

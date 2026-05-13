@@ -1,4 +1,5 @@
 import { API_BASE_URL } from "@/lib/api-config";
+import { readApiErrorMessage } from "@/lib/api-error";
 import { siteConfig } from "@/lib/site-config";
 
 const ACCESS_TOKEN_KEY = "innerview_access_token";
@@ -115,29 +116,6 @@ export function getSafePostLoginPath(nextRaw: string | null | undefined): string
   return path || fallback;
 }
 
-async function readErrorMessage(res: Response): Promise<string> {
-  try {
-    const ct = res.headers.get("content-type") ?? "";
-    if (ct.includes("application/json")) {
-      const data: unknown = await res.json();
-      if (
-        data &&
-        typeof data === "object" &&
-        "error" in data &&
-        typeof (data as { error: unknown }).error === "string"
-      ) {
-        return (data as { error: string }).error;
-      }
-    } else {
-      const text = await res.text();
-      if (text) return text.slice(0, 200);
-    }
-  } catch {
-    /* ignore */
-  }
-  return `Request failed (${res.status})`;
-}
-
 export type LoginResult = {
   ok: true;
   id: string;
@@ -157,7 +135,7 @@ export async function apiLogin(
   });
 
   if (!res.ok) {
-    throw new Error(await readErrorMessage(res));
+    throw new Error(await readApiErrorMessage(res));
   }
 
   const auth = res.headers.get("Authorization");
@@ -199,7 +177,7 @@ export async function apiRegister(payload: {
   });
 
   if (!res.ok) {
-    throw new Error(await readErrorMessage(res));
+    throw new Error(await readApiErrorMessage(res));
   }
 
   const body = (await res.json()) as { message?: string };
@@ -220,7 +198,7 @@ export async function apiForgotPassword(
   });
 
   if (!res.ok) {
-    throw new Error(await readErrorMessage(res));
+    throw new Error(await readApiErrorMessage(res));
   }
 
   const body = (await res.json()) as { message?: string };
@@ -237,9 +215,15 @@ export async function apiResetPassword(payload: {
   new_password: string;
   new_password_confirm: string;
 }): Promise<{ ok: true; message: string }> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  const access = getStoredAccessToken();
+  if (access) headers.Authorization = `Bearer ${access}`;
+
   const res = await fetch(`${API_BASE_URL}/api/auth/reset-password`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify({
       token: payload.token.trim(),
       new_password: payload.new_password,
@@ -249,7 +233,7 @@ export async function apiResetPassword(payload: {
   });
 
   if (!res.ok) {
-    throw new Error(await readErrorMessage(res));
+    throw new Error(await readApiErrorMessage(res));
   }
 
   const body = (await res.json()) as { message?: string };
@@ -277,7 +261,7 @@ export async function apiRefresh(refreshToken: string): Promise<{
   });
 
   if (!res.ok) {
-    throw new Error(await readErrorMessage(res));
+    throw new Error(await readApiErrorMessage(res));
   }
 
   const body = (await res.json()) as {
@@ -312,7 +296,7 @@ export async function apiLogout(): Promise<void> {
   });
 
   if (!res.ok) {
-    const msg = await readErrorMessage(res);
+    const msg = await readApiErrorMessage(res);
     // If refresh cookie was never set (wrong path / old sessions), still sign out locally.
     if (
       res.status === 400 &&

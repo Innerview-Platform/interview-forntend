@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   BarChart3,
+  BookOpen,
   Home,
   LayoutDashboard,
   Mic,
@@ -33,6 +34,11 @@ const generalNav = [
     href: siteConfig.routes.profile,
     label: "Profile",
     icon: UserRound,
+  },
+  {
+    href: siteConfig.routes.problems,
+    label: "Problems",
+    icon: BookOpen,
   },
   {
     href: siteConfig.routes.dashboard,

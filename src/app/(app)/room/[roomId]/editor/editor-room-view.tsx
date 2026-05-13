@@ -1,10 +1,9 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useSyncExternalStore } from "react";
-import { SharedMonacoEditor } from "@/components/room/SharedMonacoEditor";
-import { CompileOutputPanel } from "@/components/room/CompileOutputPanel";
-import { RoomVideoPanel } from "@/components/room/RoomVideoPanel";
+import { FloatingInterviewVideo } from "@/components/room/FloatingInterviewVideo";
+import { InterviewWorkspace } from "@/app/(app)/room/[roomId]/editor/InterviewWorkspace";
 import { useRoomSession } from "@/app/(app)/room/[roomId]/room-session-context";
 import {
   getClientSessionSnapshot,
@@ -15,8 +14,15 @@ import { siteConfig } from "@/lib/site-config";
 
 export function EditorRoomView() {
   const router = useRouter();
-  const { wsState, compileResult, compileBusy, clearCompileResult } =
-    useRoomSession();
+  const params = useParams();
+  const roomId =
+    typeof params.roomId === "string"
+      ? params.roomId
+      : Array.isArray(params.roomId)
+        ? params.roomId[0] ?? ""
+        : "";
+
+  const { joinError } = useRoomSession();
   const { token, user } = useSyncExternalStore(
     subscribeClientSession,
     getClientSessionSnapshot,
@@ -38,21 +44,11 @@ export function EditorRoomView() {
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3">
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 lg:grid-cols-[1fr_minmax(280px,34%)] lg:items-stretch lg:gap-4">
-        <div className="flex min-h-[min(360px,52vh)] min-w-0 flex-col lg:min-h-0">
-          <SharedMonacoEditor />
-        </div>
-        <div className="flex min-h-[min(280px,40vh)] min-w-0 flex-col lg:min-h-0">
-          <RoomVideoPanel variant="embedded" />
-        </div>
-      </div>
-      <CompileOutputPanel
-        wsState={wsState}
-        compileResult={compileResult}
-        compileBusy={compileBusy}
-        clearCompileResult={clearCompileResult}
-      />
+    <div className="relative flex min-h-0 flex-1 flex-col">
+      <InterviewWorkspace roomId={roomId} />
+      {roomId ? (
+        <FloatingInterviewVideo roomId={roomId} joinError={joinError} />
+      ) : null}
     </div>
   );
 }

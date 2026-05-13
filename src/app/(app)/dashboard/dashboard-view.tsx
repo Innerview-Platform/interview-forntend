@@ -23,11 +23,28 @@ import {
 import { siteConfig } from "@/lib/site-config";
 import {
   apiCreateInstantInterview,
+  apiCreateScheduledInterview,
   CREATOR_ROLES,
   INTERVIEW_TYPES,
+  ROOM_SIZES,
   type InterviewType,
   type CreatorInterviewRole,
+  type RoomSize,
 } from "@/lib/interview-api";
+
+function parseUuidList(raw: string): string[] {
+  return raw
+    .split(/[\s,;]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function localDateTimeToIso(local: string): string {
+  if (!local) return "";
+  const d = new Date(local);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toISOString();
+}
 
 function displayNameFromEmail(email: string): string {
   const local = email.split("@")[0]?.trim();
@@ -40,6 +57,11 @@ export function DashboardView() {
   const [interviewType, setInterviewType] = useState<InterviewType>("TECHNICAL");
   const [creatorRole, setCreatorRole] =
     useState<CreatorInterviewRole>("INTERVIEWER");
+  const [roomSize, setRoomSize] = useState<RoomSize>("ONE_ON_ONE");
+  const [problemIdsInput, setProblemIdsInput] = useState("");
+  const [scheduleStartLocal, setScheduleStartLocal] = useState("");
+  const [schedulePending, setSchedulePending] = useState(false);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [startPending, setStartPending] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
   const [joinCode, setJoinCode] = useState("");
@@ -70,16 +92,45 @@ export function DashboardView() {
     setStartError(null);
     setStartPending(true);
     try {
+      const ids = parseUuidList(problemIdsInput);
       const res = await apiCreateInstantInterview({
         interviewType,
+        roomSize,
         creatorInterviewRole: creatorRole,
-        durationMinutes: 60,
+        problemIds: ids.length ? ids : undefined,
       });
       router.push(`/room/${encodeURIComponent(res.roomId)}/editor`);
     } catch (e) {
       setStartError(e instanceof Error ? e.message : "Could not start interview");
     } finally {
       setStartPending(false);
+    }
+  }
+
+  async function handleScheduleInterview() {
+    setScheduleError(null);
+    const iso = localDateTimeToIso(scheduleStartLocal);
+    if (!iso) {
+      setScheduleError("Pick a valid start date and time.");
+      return;
+    }
+    setSchedulePending(true);
+    try {
+      const ids = parseUuidList(problemIdsInput);
+      const res = await apiCreateScheduledInterview({
+        interviewType,
+        roomSize,
+        creatorInterviewRole: creatorRole,
+        startTime: iso,
+        problemIds: ids.length ? ids : undefined,
+      });
+      router.push(`/room/${encodeURIComponent(res.roomId)}/editor`);
+    } catch (e) {
+      setScheduleError(
+        e instanceof Error ? e.message : "Could not schedule interview",
+      );
+    } finally {
+      setSchedulePending(false);
     }
   }
 
@@ -139,7 +190,7 @@ export function DashboardView() {
             <p className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-muted">
               Start instant interview
             </p>
-            <div className="grid gap-4 md:grid-cols-[1fr_1fr_auto] md:items-end">
+            <div className="grid gap-4 md:grid-cols-2 md:items-end">
               <label className="block text-sm">
                 <span className="mb-1.5 block font-medium text-muted-strong">Interview type</span>
                 <select
@@ -172,18 +223,77 @@ export function DashboardView() {
                   ))}
                 </select>
               </label>
-              <button
-                type="button"
-                onClick={() => void handleStartInstant()}
-                disabled={startPending}
-                className="inline-flex items-center justify-center gap-2 rounded-lg border border-success/30 bg-success/90 px-5 py-2.5 text-sm font-semibold text-[#04130d] shadow transition hover:bg-success disabled:opacity-50"
-              >
-                {startPending ? "Starting…" : "Start & open room"}
-                <ArrowRight className="h-4 w-4" aria-hidden />
-              </button>
+              <label className="block text-sm">
+                <span className="mb-1.5 block font-medium text-muted-strong">Room size</span>
+                <select
+                  className="w-full rounded-lg border border-white/15 bg-surface-soft/80 px-3 py-2.5 text-sm text-foreground outline-none focus:border-accent/50 focus:ring-2 focus:ring-accent/25"
+                  value={roomSize}
+                  onChange={(e) =>
+                    setRoomSize(e.target.value as RoomSize)
+                  }
+                >
+                  {ROOM_SIZES.map((s) => (
+                    <option key={s} value={s}>
+                      {s === "ONE_ON_ONE" ? "One on one" : "Group (many)"}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block text-sm md:col-span-2">
+                <span className="mb-1.5 block font-medium text-muted-strong">
+                  Problem IDs (optional)
+                </span>
+                <textarea
+                  value={problemIdsInput}
+                  onChange={(e) => setProblemIdsInput(e.target.value)}
+                  rows={2}
+                  placeholder="UUIDs separated by comma or space (active problems only)"
+                  className="w-full rounded-lg border border-white/15 bg-surface-soft/80 px-3 py-2.5 font-mono text-xs text-foreground outline-none focus:border-accent/50 focus:ring-2 focus:ring-accent/25"
+                />
+              </label>
+              <div className="flex flex-col gap-2 md:col-span-2 md:flex-row md:items-center md:justify-end">
+                <button
+                  type="button"
+                  onClick={() => void handleStartInstant()}
+                  disabled={startPending}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-success/30 bg-success/90 px-5 py-2.5 text-sm font-semibold text-[#04130d] shadow transition hover:bg-success disabled:opacity-50"
+                >
+                  {startPending ? "Starting…" : "Start & open room"}
+                  <ArrowRight className="h-4 w-4" aria-hidden />
+                </button>
+              </div>
             </div>
             {startError ? (
               <p className="mt-3 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-rose-100">{startError}</p>
+            ) : null}
+          </div>
+
+          <div className="border-t border-white/10 pt-8">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-muted">
+              Schedule interview
+            </p>
+            <p className="mb-3 text-xs text-muted">
+              Uses the same payload as instant, plus a start time in your local timezone. Share the room link after scheduling.
+            </p>
+            <label className="mb-3 block text-sm">
+              <span className="mb-1.5 block font-medium text-muted-strong">Start time</span>
+              <input
+                type="datetime-local"
+                value={scheduleStartLocal}
+                onChange={(e) => setScheduleStartLocal(e.target.value)}
+                className="w-full max-w-md rounded-lg border border-white/15 bg-surface-soft/80 px-3 py-2.5 text-sm text-foreground outline-none focus:border-accent/50 focus:ring-2 focus:ring-accent/25"
+              />
+            </label>
+            <button
+              type="button"
+              onClick={() => void handleScheduleInterview()}
+              disabled={schedulePending}
+              className="rounded-lg border border-white/15 bg-white/[0.06] px-5 py-2.5 text-sm font-medium text-foreground transition hover:bg-white/[0.1] disabled:opacity-50"
+            >
+              {schedulePending ? "Scheduling…" : "Schedule & open room"}
+            </button>
+            {scheduleError ? (
+              <p className="mt-3 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-rose-100">{scheduleError}</p>
             ) : null}
           </div>
 
@@ -254,7 +364,7 @@ export function DashboardView() {
       <div className="mt-6">
         <EmptyState
           title="Recent activity will appear here"
-          description="Interview history and feedback are available on your profile today. A richer dashboard feed can connect to the same APIs when the product scope expands."
+          description="Interview history JSON from GET /api/interviews/user/{id}/history is not wired in the UI yet; use your profile tabs for interview and feedback lists."
         />
       </div>
     </div>

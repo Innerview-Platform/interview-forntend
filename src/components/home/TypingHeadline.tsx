@@ -47,8 +47,10 @@ export function TypingHeadline({
         setText(phrase.slice(0, text.length - 1));
       }, deletingMs);
     } else if (deleting && text.length === 0) {
-      setDeleting(false);
-      setPhraseIndex((i) => i + 1);
+      timer = setTimeout(() => {
+        setDeleting(false);
+        setPhraseIndex((i) => i + 1);
+      }, 0);
     }
 
     return () => clearTimeout(timer);

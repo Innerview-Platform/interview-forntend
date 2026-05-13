@@ -25,7 +25,7 @@ export function Hero() {
         <div className="max-w-xl lg:max-w-none">
           <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/[0.06] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-accent-soft shadow-[0_0_32px_rgba(139,92,246,0.22)] backdrop-blur-xl sm:text-xs">
             <Sparkles className="size-3.5 shrink-0 text-accent" aria-hidden />
-            Live editor · video · runnable output
+            Live editor · video · STOMP run output
           </p>
 
           <div className="space-y-5">
@@ -43,9 +43,9 @@ export function Hero() {
             </h1>
 
             <p className="max-w-xl text-base leading-relaxed text-muted sm:text-lg">
-              Practice like it&apos;s real - shared Monaco, collaborative
-              cursors, Piston-backed runs, LiveKit-ready video, and a profile
-              that reads like your interview story.
+              Practice like it&apos;s real - shared Monaco with Yjs, Piston-backed
+              runs broadcast on the room channel, video over WebRTC or LiveKit when
+              you enable it, plus problems and submissions in the app shell.
             </p>
           </div>
 
@@ -73,7 +73,7 @@ export function Hero() {
                 Collaboration
               </dt>
               <dd className="mt-1 text-sm font-medium text-muted-strong">
-                Yjs-backed editor + cursor presence
+                Yjs-backed shared editor
               </dd>
             </div>
             <div>

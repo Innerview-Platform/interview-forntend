@@ -68,6 +68,13 @@ export function CompileOutputPanel({
               ) : null}
             </div>
 
+            {compileResult.pistonReachable === false ? (
+              <p className="rounded-lg border border-amber-500/35 bg-amber-500/15 px-2.5 py-2 text-xs text-amber-100">
+                Compile runner (Piston) was unreachable. This is separate from
+                your code failing; try again later or check service status.
+              </p>
+            ) : null}
+
             {compileResult.errorMessage ? (
               <p className="rounded-lg border border-amber-500/25 bg-amber-500/10 p-2.5 text-amber-100">
                 {compileResult.errorMessage}
