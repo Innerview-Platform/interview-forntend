@@ -94,7 +94,7 @@ function buildProblemQuery(params?: ProblemListParams): string {
   return q ? `?${q}` : "";
 }
 
-/** Public list (`permitAll` on BE for this path). */
+/** Paginated problem list for explore. */
 export async function apiListProblems(
   params?: ProblemListParams,
 ): Promise<SpringPage<ProblemResponseDto>> {

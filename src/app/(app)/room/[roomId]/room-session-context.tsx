@@ -15,6 +15,7 @@ import {
   subscribeClientSession,
 } from "@/lib/client-session";
 import { apiLeaveRoom, type RoomParticipantInfo } from "@/lib/room-api";
+import { ensureInterviewIdForRoom } from "@/lib/interview-api";
 import { siteConfig } from "@/lib/site-config";
 import {
   useSharedEditor,
@@ -50,7 +51,7 @@ export type RoomSessionValue = UseSharedEditorReturn & {
   participants: RoomParticipantInfo[];
   /** Reserved for future presence labels; collaborator code carets use `remoteCursors` + `/cursors`. */
   presenceNames: Record<string, string>;
-  /** No `ROLE` signals on `/topic/room/{id}` — typically `MANY` rooms per backend. */
+  /** No `ROLE` signals on `/topic/room/{id}` - typically `MANY` rooms per backend. */
   rosterLimited: boolean;
 };
 
@@ -85,6 +86,11 @@ export function RoomSessionProvider({
       router.replace(siteConfig.routes.login);
     }
   }, [router, token, user?.id]);
+
+  useEffect(() => {
+    if (!token || !user?.id || !roomId.trim()) return;
+    void ensureInterviewIdForRoom(roomId).catch(() => {});
+  }, [token, user?.id, roomId]);
 
   useEffect(() => {
     if (!token || !user?.id) return;

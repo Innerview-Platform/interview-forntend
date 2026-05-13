@@ -52,7 +52,7 @@ export function RoomShell({
               className="inline-flex items-center gap-1.5 rounded-lg border border-danger/35 bg-danger/15 px-3 py-2 text-xs font-medium text-rose-100 transition hover:bg-danger/25"
             >
               <LogOut className="h-3.5 w-3.5" aria-hidden />
-              Leave room
+              {/* Leave room */}
             </button>
           ) : null}
         </div>

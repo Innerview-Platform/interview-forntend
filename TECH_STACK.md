@@ -19,9 +19,7 @@ Quick reference for **01 Fontend Repo** (`web`).
 | **Tailwind CSS** `4.x` | Utility-first CSS |
 | **PostCSS** | Tailwind pipeline (`@tailwindcss/postcss`) |
 | **Lucide React** | Icon set |
-| **react-grid-layout** | Draggable/resizable interview workspace (code / canvas / console) |
-| **react-rnd** | Floating resizable video shell on the editor page |
-| **react-resizable** | Peer dependency for grid resize handles |
+| **react-resizable-panels** | Split-pane interview workspace (code \| canvas, console below); layout presets + `localStorage` via library `autoSaveId` |
 
 ## Editor & collaboration
 
@@ -60,13 +58,14 @@ Quick reference for **01 Fontend Repo** (`web`).
 ## Project conventions
 
 - **Path alias:** `@/*` → `./src/*` (`tsconfig.json`)
-- **Env-driven:** backend origin (`BACKEND_ORIGIN`), LiveKit URL, video transport mode — see `next.config.ts` and `src/lib/video-config.ts`
+- **Env-driven:** backend origin (`BACKEND_ORIGIN`), LiveKit URL, video transport mode - see `next.config.ts` and `src/lib/video-config.ts`
 
 ## Not in `package.json` but used in-app
 
-- **Fetch / REST** — browser `fetch` to same-origin `/api/*` (rewritten to Spring)
-- **Cookies / localStorage** — session token and user snapshot (`src/lib/auth-api.ts`, `client-session`)
-- **JWT** — parsed client-side where needed (e.g. subject / user id)
+- **Interview editor** - [`InterviewWorkspace.tsx`](src/app/(app)/room/[roomId]/editor/InterviewWorkspace.tsx) (split panes) + [`RoomRightRail.tsx`](src/components/room/RoomRightRail.tsx) (lg+ video strip)
+- **Fetch / REST** - browser `fetch` to same-origin `/api/*` (rewritten to Spring)
+- **Cookies / localStorage** - session token and user snapshot (`src/lib/auth-api.ts`, `client-session`)
+- **JWT** - parsed client-side where needed (e.g. subject / user id)
 
 ---
 

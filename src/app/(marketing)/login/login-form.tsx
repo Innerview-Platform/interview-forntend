@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Input } from "@/components/ui/Input";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 import { BrandLogo } from "@/components/layout/BrandLogo";
 import { apiLogin, getSafePostLoginPath } from "@/lib/auth-api";
 import { siteConfig } from "@/lib/site-config";
@@ -80,10 +81,9 @@ export function LoginForm() {
           onChange={(e) => setEmail(e.target.value)}
           placeholder="you@example.com"
         />
-        <Input
+        <PasswordInput
           id="login-password"
           label="Password"
-          type="password"
           autoComplete="current-password"
           required
           value={password}

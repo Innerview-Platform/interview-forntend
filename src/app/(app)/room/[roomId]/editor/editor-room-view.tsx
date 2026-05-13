@@ -2,9 +2,7 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useSyncExternalStore } from "react";
-import { FloatingInterviewVideo } from "@/components/room/FloatingInterviewVideo";
 import { InterviewWorkspace } from "@/app/(app)/room/[roomId]/editor/InterviewWorkspace";
-import { useRoomSession } from "@/app/(app)/room/[roomId]/room-session-context";
 import {
   getClientSessionSnapshot,
   getServerClientSessionSnapshot,
@@ -22,7 +20,6 @@ export function EditorRoomView() {
         ? params.roomId[0] ?? ""
         : "";
 
-  const { joinError } = useRoomSession();
   const { token, user } = useSyncExternalStore(
     subscribeClientSession,
     getClientSessionSnapshot,
@@ -44,11 +41,8 @@ export function EditorRoomView() {
   }
 
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <InterviewWorkspace roomId={roomId} />
-      {roomId ? (
-        <FloatingInterviewVideo roomId={roomId} joinError={joinError} />
-      ) : null}
     </div>
   );
 }

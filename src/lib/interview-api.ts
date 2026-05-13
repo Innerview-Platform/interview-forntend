@@ -5,6 +5,7 @@ import {
   throwRedirectingIfUnauthorized,
 } from "@/lib/auth-api";
 import {
+  readStoredInterviewIdForRoom,
   writeStoredInterviewIdForRoom,
 } from "@/lib/room-interview-session";
 
@@ -43,8 +44,15 @@ export type ScheduledInterviewRequestBody = Omit<
 export type InterviewResponseDto = {
   roomId: string;
   roomLink: string;
-  /** When backend adds field; see `_helper/Wanted_Endpoints/interview_response_interview_id.md`. */
+  /** Database interview id for submissions. */
   interviewId?: number;
+};
+
+export type InterviewByRoomDto = {
+  interviewId: number;
+  roomId: string;
+  status: string;
+  type: string;
 };
 
 function apiPrefix(): string {
@@ -75,8 +83,33 @@ function instantPayload(body: InstantInterviewRequestBody): Record<string, unkno
 
 function persistInterviewIdIfPresent(res: InterviewResponseDto): void {
   if (res.interviewId != null && res.roomId) {
-    writeStoredInterviewIdForRoom(res.roomId, res.interviewId);
+    writeStoredInterviewIdForRoom(res.roomId, Math.floor(res.interviewId));
   }
+}
+
+/**
+ * If session has no interview id for this room, loads it from the server by room id.
+ * No-op on 404.
+ */
+export async function ensureInterviewIdForRoom(roomId: string): Promise<void> {
+  if (typeof window === "undefined") return;
+  const id = roomId.trim();
+  if (!id) return;
+  if (readStoredInterviewIdForRoom(id) != null) return;
+
+  const res = await fetch(
+    `${apiPrefix()}/api/interviews/by-room/${encodeURIComponent(id)}`,
+    { credentials: "include", headers: authHeaders() },
+  );
+  if (res.status === 404) return;
+  throwRedirectingIfUnauthorized(res);
+  if (!res.ok) return;
+  const json = (await res.json()) as InterviewByRoomDto;
+  persistInterviewIdIfPresent({
+    roomId: json.roomId ?? id,
+    roomLink: "",
+    interviewId: json.interviewId,
+  });
 }
 
 export async function apiCreateInstantInterview(

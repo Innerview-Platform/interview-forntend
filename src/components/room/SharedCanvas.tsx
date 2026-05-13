@@ -1,11 +1,12 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Editor, TLEditorSnapshot } from "tldraw";
 import { loadSnapshot } from "tldraw";
 import { useRoomSession } from "@/app/(app)/room/[roomId]/room-session-context";
 import { Badge } from "@/components/ui/Badge";
+import { onCodeEditorFocused } from "@/lib/room-editor-focus";
 
 const Tldraw = dynamic(async () => (await import("tldraw")).Tldraw, {
   ssr: false,
@@ -19,6 +20,10 @@ const Tldraw = dynamic(async () => (await import("tldraw")).Tldraw, {
 export function SharedCanvas() {
   const { wsState, canvasSnapshotJson, canvasRemoteVersion, sendCanvasUpdate } =
     useRoomSession();
+  const tldrawOptions = useMemo(
+    () => ({ enableToolbarKeyboardShortcuts: false as const }),
+    [],
+  );
   const editorRef = useRef<Editor | null>(null);
   const isApplyingRemote = useRef(false);
   const [editorEpoch, setEditorEpoch] = useState(0);
@@ -41,7 +46,7 @@ export function SharedCanvas() {
       const parsed = JSON.parse(canvasSnapshotJson) as unknown;
       if (!parsed || typeof parsed !== "object") return;
       const o = parsed as Record<string, unknown>;
-      // Legacy: full editor snapshot (document + session) — overwrites presence.
+      // Legacy: full editor snapshot (document + session) - overwrites presence.
       if ("document" in o && "session" in o) {
         loadSnapshot(ed.store, o as unknown as TLEditorSnapshot);
       } else {
@@ -62,6 +67,10 @@ export function SharedCanvas() {
     (editor: Editor) => {
       editorRef.current = editor;
       setEditorEpoch((n) => n + 1);
+      const unfocusForCode = () =>
+        editor.blur({ blurContainer: false });
+      const removeListener = onCodeEditorFocused(unfocusForCode);
+      queueMicrotask(unfocusForCode);
       let debounce: ReturnType<typeof setTimeout> | null = null;
       const unsub = editor.store.listen(
         () => {
@@ -80,6 +89,7 @@ export function SharedCanvas() {
         { source: "user", scope: "document" },
       );
       return () => {
+        removeListener();
         unsub();
         if (debounce) clearTimeout(debounce);
       };
@@ -95,7 +105,7 @@ export function SharedCanvas() {
         : "Offline";
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-white/10 bg-[#080c14]">
+    <div className="flex min-h-0 flex-1 flex-col overflow-visible rounded-xl border border-white/10 bg-[#080c14]">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 bg-surface/65 px-3 py-2 text-xs text-muted">
         <div className="flex flex-wrap items-center gap-2">
           <span className="font-semibold uppercase tracking-[0.16em] text-muted">
@@ -106,8 +116,20 @@ export function SharedCanvas() {
           </Badge>
         </div>
       </div>
-      <div className="relative min-h-[min(480px,55vh)] flex-1 w-full bg-[#f8f9fa]">
-        <Tldraw onMount={onMount} />
+      <div
+        className="relative min-h-0 flex-1 w-full overflow-visible bg-[#f8f9fa]"
+        onPointerDownCapture={() => {
+          const ed = editorRef.current;
+          if (ed && !ed.getIsFocused()) {
+            ed.focus({ focusContainer: false });
+          }
+        }}
+      >
+        <Tldraw
+          autoFocus={false}
+          options={tldrawOptions}
+          onMount={onMount}
+        />
       </div>
     </div>
   );

@@ -40,7 +40,7 @@ export default function ProblemsExplorePage() {
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Explore problems</h1>
           <p className="mt-1 text-sm text-muted">
-            Public list from <code className="text-xs">GET /api/problems</code>.{" "}
+            Browse community problems.{" "}
             <Link href={`${siteConfig.routes.problems}/mine`} className="text-accent hover:underline">
               My problems
             </Link>

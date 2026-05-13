@@ -14,7 +14,7 @@ import { isAccessTokenExpired } from "@/lib/jwt-expiry";
 /**
  * Guards `(app)` routes: requires access token, user id, and a JWT that is not past `exp`.
  * On failure: clears stale storage and performs one `location.replace` to login with `next`
- * (same URL shape as post-401 flow — API handlers only clear session).
+ * (same URL shape as post-401 flow - API handlers only clear session).
  */
 export function RequireAuth({ children }: { children: ReactNode }) {
   const pathname = usePathname();

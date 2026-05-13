@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Input } from "@/components/ui/Input";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 import { OAuthButton } from "@/components/ui/OAuthButton";
 import { BrandLogo } from "@/components/layout/BrandLogo";
 import { apiRegister, navigateToGoogleLogin } from "@/lib/auth-api";
@@ -160,20 +161,18 @@ export function SignupForm() {
           onChange={(e) => setEmail(e.target.value)}
           placeholder="you@example.com"
         />
-        <Input
+        <PasswordInput
           id="signup-password"
           label="Password"
-          type="password"
           autoComplete="new-password"
           required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder="••••••••"
         />
-        <Input
+        <PasswordInput
           id="signup-confirm"
           label="Confirm password"
-          type="password"
           autoComplete="new-password"
           required
           value={confirm}

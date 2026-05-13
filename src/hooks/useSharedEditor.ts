@@ -299,12 +299,12 @@ export function useSharedEditor({
       reconnectDelay: 0,
       /** Spring STOMP: split large bodies (e.g. tldraw snapshots) into smaller WS frames. */
       splitLargeFrames: true,
-      maxWebSocketChunkSize: 1024 * 1024,
+      maxWebSocketChunkSize: 4 * 1024 * 1024,
       onConnect: () => {
         log("STOMP connected", "ok");
         setWsState("connected");
         setConnectFailure(null);
-        setEditorState("joining");
+        setEditorState("on");
 
         /** Per signaling doc: subscribe all `/topic/...` channels before `JOIN`. */
         client.subscribe(`/topic/room/${roomId}/code`, (msg) => {

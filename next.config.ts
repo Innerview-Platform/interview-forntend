@@ -2,16 +2,32 @@ import path from "node:path";
 import type { NextConfig } from "next";
 
 /**
- * User-service origin. Browser uses same-origin paths so:
- * - `Authorization` is visible to fetch (no cross-origin)
- * - `Set-Cookie` with Path=/api/auth matches `/api/auth/*` on this host
+ * User-service origin. Browser uses same-origin paths so `Set-Cookie` from the
+ * backend is associated with this host. Prefer returning the access JWT in the
+ * login JSON body — proxied responses may omit the `Authorization` header from JS.
  */
 const BACKEND_ORIGIN = process.env.BACKEND_ORIGIN ?? "http://localhost:8080";
+
+/** Comma-separated extra hosts for `next dev` when tunnelling (e.g. exact ngrok URL). */
+const extraDevOrigins = (process.env.NEXT_EXTRA_DEV_ORIGINS ?? "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
 
 /** Single resolution for yjs (avoids "Yjs was already imported" with Turbopack / split chunks). */
 const yjsRoot = path.join(process.cwd(), "node_modules", "yjs");
 
 const nextConfig: NextConfig = {
+  /**
+   * Next blocks non-localhost dev origins by default. Without this, pages loaded via
+   * ngrok often hang or show no response because `/_next/*` requests are rejected.
+   */
+  allowedDevOrigins: [
+    "*.ngrok-free.app",
+    "*.ngrok-free.dev",
+    "*.ngrok.io",
+    ...extraDevOrigins,
+  ],
   /** Consistent CJS/ESM handling for the CRDT package. */
   transpilePackages: ["yjs", "monaco-editor", "y-monaco"],
   turbopack: {

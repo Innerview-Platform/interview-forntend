@@ -174,7 +174,7 @@ export function AppSidebar({ mobileOpen, onMobileClose }: Props) {
               ))}
             </nav>
           </div>
-          <div className="mt-auto rounded-xl border border-white/10 bg-surface-soft/70 p-4">
+          <div className="rounded-xl border border-white/10 bg-surface-soft/70 p-4">
             <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
               <Sparkles className="h-4 w-4 text-accent" />
               Practice toolkit

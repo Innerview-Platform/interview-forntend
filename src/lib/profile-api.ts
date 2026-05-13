@@ -134,7 +134,7 @@ export async function apiDeleteProfile(): Promise<void> {
   if (!res.ok) throw new Error(await readApiErrorMessage(res));
 }
 
-/** Backend PATCH /api/profile/image expects JSON { photoUrl } (UpdateImageRequest). */
+/** Updates profile image URL (JSON body). */
 export async function apiPatchProfilePhotoUrl(photoUrl: string): Promise<void> {
   const res = await fetch(`${apiPrefix()}/api/profile/image`, {
     method: "PATCH",

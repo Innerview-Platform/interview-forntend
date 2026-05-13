@@ -1,22 +1,12 @@
 "use client";
 
 import { ChevronDown, ChevronUp } from "lucide-react";
-import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { useRoomMedia } from "@/app/(app)/room/[roomId]/room-media-context";
 
 const SLOT_COUNT = 4;
 
-/** Match `/room/{id}/editor` - video tiles are inlined there when a call is active. */
-function isEmbeddedRoomEditorPath(pathname: string | null) {
-  if (!pathname) return false;
-  return /\/room\/[^/]+\/editor$/.test(pathname);
-}
-
 export function RoomVideoDock() {
-  const pathname = usePathname();
-  const inlineVideoUi = isEmbeddedRoomEditorPath(pathname);
-
   const {
     localStream,
     remoteStream,
@@ -43,8 +33,6 @@ export function RoomVideoDock() {
   }, [remoteStream]);
 
   if (!callActive) return null;
-  /* Avoid twin local/remote tiles when the unified editor page embeds AV. */
-  if (inlineVideoUi) return null;
 
   return (
     <div

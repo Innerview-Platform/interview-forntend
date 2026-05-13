@@ -31,8 +31,8 @@ export function TrustBar() {
         <AbstractGlassMesh className="absolute inset-0 min-h-full w-full" />
       </div>
 
-      <div className="relative mx-auto grid max-w-7xl gap-10 px-4 sm:gap-12 sm:px-6 lg:grid-cols-[1.05fr_auto] lg:items-center lg:gap-14 lg:px-8">
-        <div className="space-y-4 text-center lg:text-left">
+      <div className="relative mx-auto grid max-w-7xl gap-10 px-4 sm:gap-12 sm:px-6 lg:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)] lg:items-start lg:gap-14 lg:px-8">
+        <div className="min-w-0 space-y-4 text-center lg:max-w-none lg:text-left">
           <div className="inline-flex items-center justify-center gap-2 rounded-full border border-white/15 bg-white/[0.05] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-accent-soft lg:justify-start">
             <Sparkles className="size-3 text-accent" aria-hidden />
             Built today for remote technical interviews
@@ -47,7 +47,7 @@ export function TrustBar() {
           </p>
         </div>
 
-        <div className="flex flex-col gap-6">
+        <div className="flex min-w-0 flex-col gap-6 lg:pt-1">
           <ul className="flex flex-wrap items-center justify-center gap-3 lg:justify-end">
             {capabilities.map((name) => (
               <li
@@ -58,11 +58,11 @@ export function TrustBar() {
               </li>
             ))}
           </ul>
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="flex flex-col gap-3">
             {pillars.map(({ icon: Icon, label, detail }) => (
               <div
                 key={label}
-                className="rounded-2xl border border-white/[0.1] bg-black/35 p-4 text-left shadow-inner shadow-accent/10 transition-transform duration-500 motion-safe:hover:-translate-y-0.5 motion-reduce:hover:translate-y-0"
+                className="rounded-2xl border border-white/[0.1] bg-black/35 p-4 text-left shadow-inner shadow-accent/10 transition-transform duration-500 motion-safe:hover:-translate-y-0.5 motion-reduce:hover:translate-y-0 sm:p-5"
               >
                 <Icon className="mb-3 size-5 text-accent" aria-hidden />
                 <p className="text-[13px] font-semibold tracking-tight text-foreground">

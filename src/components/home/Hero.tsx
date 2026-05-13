@@ -113,7 +113,7 @@ export function Hero() {
 
           <div className="relative z-10 w-full motion-safe:iv-animate-float">
             <div
-              className="rounded-[1.65rem] border border-white/[0.14] bg-glass-bg/90 p-[10px] shadow-[0_32px_80px_rgba(0,0,0,0.55)] ring-1 ring-white/[0.06] backdrop-blur-2xl"
+              className="rounded-[1.65rem] border border-white/[0.14] bg-glass-bg/90 p-3 shadow-[0_32px_80px_rgba(0,0,0,0.55)] ring-1 ring-white/[0.06] backdrop-blur-2xl sm:p-3.5 md:p-4"
               style={{
                 transform: "rotateY(-10deg) rotateX(14deg)",
                 transformStyle: "preserve-3d",

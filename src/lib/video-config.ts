@@ -23,10 +23,7 @@ export type LiveKitTokenResponse = {
   token: string;
 };
 
-/**
- * Fetches a LiveKit room JWT: `GET /api/rooms/{roomId}/token` with Bearer auth only
- * (room id from path; see `sfu_livekit.md`).
- */
+/** Fetches a LiveKit access token for the room (Bearer auth). See `sfu_livekit.md`. */
 export async function fetchLiveKitAccessToken(params: {
   roomId: string;
   bearerToken: string;

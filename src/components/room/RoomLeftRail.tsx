@@ -30,28 +30,28 @@ export function RoomLeftRail({ roomId }: { roomId: string }) {
     >
       <Link
         href={editorHref}
-        title="Live workspace — code, canvas, run output, floating video"
+        title="Live workspace - code beside canvas, splitters, console; video in the right strip (large screens)"
         className={btn(editorHref, active(editorHref))}
       >
         <Layers className="h-5 w-5" aria-hidden />
         <span className="sr-only">Live room</span>
       </Link>
-      <Link
+      {/* <Link
         href={canvasHref}
         title="Open live workspace (canvas is on the editor page)"
         className={btn(canvasHref, active(canvasHref))}
       >
         <PenLine className="h-5 w-5" aria-hidden />
         <span className="sr-only">Shared canvas</span>
-      </Link>
-      <Link
+      </Link> */}
+      {/* <Link
         href={compileHref}
         title="Compile output"
         className={btn(compileHref, active(compileHref))}
       >
         <TerminalSquare className="h-5 w-5" aria-hidden />
         <span className="sr-only">Compile output</span>
-      </Link>
+      </Link> */}
       <Link
         href={submissionsHref}
         title="Submissions"

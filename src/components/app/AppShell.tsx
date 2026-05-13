@@ -16,14 +16,14 @@ export function AppShell({ children }: { children: ReactNode }) {
       {roomFullscreen ? (
         <div className="min-h-dvh bg-background">{children}</div>
       ) : (
-        <div className="flex min-h-full">
+        <div className="flex min-h-dvh bg-background">
           <AppSidebar
             mobileOpen={mobileOpen}
             onMobileClose={() => setMobileOpen(false)}
           />
-          <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             <AppTopBar onMenuOpen={() => setMobileOpen(true)} />
-            <div className="flex-1 overflow-x-hidden">{children}</div>
+            <div className="min-h-0 flex-1 overflow-x-hidden">{children}</div>
           </div>
         </div>
       )}

@@ -138,13 +138,22 @@ export async function apiLogin(
     throw new Error(await readApiErrorMessage(res));
   }
 
+  const body = (await res.json()) as {
+    id?: string;
+    email?: string;
+    accessToken?: string;
+  };
+
   const auth = res.headers.get("Authorization");
-  const accessToken = auth?.startsWith("Bearer ")
+  const fromHeader = auth?.startsWith("Bearer ")
     ? auth.slice("Bearer ".length).trim()
     : null;
+  const accessToken =
+    (typeof body.accessToken === "string" && body.accessToken.trim()
+      ? body.accessToken.trim()
+      : null) ?? fromHeader;
   if (accessToken) setStoredAccessToken(accessToken);
 
-  const body = (await res.json()) as { id?: string; email?: string };
   const id = body.id ?? "";
   const emailOut = body.email ?? "";
   setStoredUser({ id, email: emailOut });

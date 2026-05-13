@@ -22,6 +22,7 @@ import {
   createRemoteCursorContentWidget,
   type RemoteCursorWidgetHandle,
 } from "./remote-cursor-content-widgets";
+import { emitCodeEditorFocused } from "@/lib/room-editor-focus";
 
 const MonacoEditor = dynamic(
   async () => (await import("@monaco-editor/react")).default,
@@ -90,6 +91,13 @@ export function SharedMonacoEditor() {
       );
     });
   }, [pistonLang, editorEpoch]);
+
+  useEffect(() => {
+    const ed = editorRef.current;
+    if (!ed) return;
+    const sub = ed.onDidFocusEditorWidget(() => emitCodeEditorFocused());
+    return () => sub.dispose();
+  }, [editorEpoch]);
 
   useEffect(() => {
     const ed = editorRef.current;
@@ -284,7 +292,7 @@ export function SharedMonacoEditor() {
           {joinError}
         </p>
       ) : null}
-      <div className="min-h-[min(480px,55vh)] flex-1 bg-[#090d16]">
+      <div className="min-h-0 flex-1 bg-[#090d16]">
         <MonacoEditor
           height="100%"
           theme="vs-dark"
@@ -296,6 +304,7 @@ export function SharedMonacoEditor() {
             fontSize: 13,
             scrollBeyondLastLine: false,
             automaticLayout: true,
+            readOnly: false,
           }}
           loading={
             <div className="flex h-64 items-center justify-center text-sm text-muted">

@@ -273,7 +273,7 @@ export function DashboardView() {
               Schedule interview
             </p>
             <p className="mb-3 text-xs text-muted">
-              Uses the same payload as instant, plus a start time in your local timezone. Share the room link after scheduling.
+              Pick a start time, then open the room when you are ready.
             </p>
             <label className="mb-3 block text-sm">
               <span className="mb-1.5 block font-medium text-muted-strong">Start time</span>
@@ -343,7 +343,7 @@ export function DashboardView() {
           <SectionHeader
             eyebrow="Account"
             title="Session identity"
-            description="Used by protected API calls, room joins, and realtime session labels."
+            description="Shown in rooms and session labels so partners recognize you."
           />
           <dl className="mt-5 space-y-4 text-sm">
             <div>
@@ -364,7 +364,7 @@ export function DashboardView() {
       <div className="mt-6">
         <EmptyState
           title="Recent activity will appear here"
-          description="Interview history JSON from GET /api/interviews/user/{id}/history is not wired in the UI yet; use your profile tabs for interview and feedback lists."
+          description="Interview and feedback history live on your profile when available."
         />
       </div>
     </div>

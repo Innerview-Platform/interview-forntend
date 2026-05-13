@@ -26,7 +26,10 @@ export function RoomSubmissionsPanel() {
 
   const { code } = useRoomSession();
   const [sessionInput, setSessionInput] = useState("");
-  const [problemId, setProblemId] = useState("");
+  const [problemId, setProblemId] = useState(() => {
+    const v = process.env.NEXT_PUBLIC_SEED_PROBLEM_UUID?.trim();
+    return v && v.length > 0 ? v : "";
+  });
   const [language, setLanguage] = useState("");
   const [langs, setLangs] = useState<ProgrammingLanguageDto[]>([]);
   const [busy, setBusy] = useState(false);
@@ -93,15 +96,9 @@ export function RoomSubmissionsPanel() {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 text-sm">
       <p className="text-muted">
-        Submissions target{" "}
-        <code className="rounded bg-white/10 px-1">POST /api/sessions/{"{interviewId}"}/submissions</code>
-        . The API does not yet return{" "}
-        <code className="rounded bg-white/10 px-1">interviewId</code> on interview
-        creation — see{" "}
-        <code className="text-xs text-muted-strong">
-          _helper/Wanted_Endpoints/interview_response_interview_id.md
-        </code>
-        . Paste the numeric id here once; it is stored for this browser tab per room.
+        Submit the shared editor for judging against this problem. Enter the interview
+        session id and problem id once per tab; they are saved for this room in your
+        browser.
       </p>
 
       <label className="block">

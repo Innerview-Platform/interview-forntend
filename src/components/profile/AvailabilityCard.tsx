@@ -15,7 +15,7 @@ export function AvailabilityCard() {
           <h3 className="text-sm font-semibold text-foreground">Availability</h3>
           <p className="mt-1 text-xs leading-relaxed text-muted">
             Let others know when you&apos;re typically free for mock sessions. Calendar
-            sync is not wired up yet.
+            sync is coming soon.
           </p>
           <Button type="button" variant="ghost" className="mt-4 w-full" disabled>
             Set availability (soon)

@@ -1,4 +1,4 @@
-/** Until `InterviewResponse` includes `interviewId`, user can paste id once per room (dev / power users). */
+/** Session-scoped interview id for this room; set from creation or room lookup. */
 export function interviewSessionStorageKey(roomId: string): string {
   return `innerview_interview_id_for_room:${roomId}`;
 }

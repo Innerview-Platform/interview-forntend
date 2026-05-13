@@ -9,7 +9,7 @@ import {
   type ProblemOwnerDto,
   type ProblemResponseDto,
 } from "@/lib/problems-api";
-import { apiListProgrammingLanguages } from "@/lib/programming-languages-api";
+import { apiListProgrammingLanguagesForRun } from "@/lib/programming-languages-api";
 import type { ProgrammingLanguageDto } from "@/lib/programming-languages-api";
 import { siteConfig } from "@/lib/site-config";
 
@@ -37,7 +37,7 @@ export default function ProblemDetailPage() {
   }, [slug]);
 
   useEffect(() => {
-    void apiListProgrammingLanguages().then((l) => {
+    void apiListProgrammingLanguagesForRun().then((l) => {
       setRunLangs(l);
       setRunLang((prev) => prev || l[0]?.name || "");
     });
@@ -89,8 +89,7 @@ export default function ProblemDetailPage() {
       <div className="mt-8 border-t border-white/10 pt-6">
         <h2 className="text-lg font-medium text-foreground">Run (samples)</h2>
         <p className="mt-1 text-xs text-muted">
-          Uses <code className="rounded bg-white/10 px-1">POST /api/problems/{"{id}"}/run</code>{" "}
-          — non-owners only see sample tests.
+          Run sample tests in your chosen language. Guests only see sample cases.
         </p>
         <select
           value={runLang}
