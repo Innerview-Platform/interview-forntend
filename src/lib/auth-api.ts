@@ -1,4 +1,6 @@
 import { API_BASE_URL } from "@/lib/api-config";
+import { readApiErrorMessage } from "@/lib/api-error";
+import { siteConfig } from "@/lib/site-config";
 
 const ACCESS_TOKEN_KEY = "innerview_access_token";
 const USER_KEY = "innerview_user";
@@ -54,27 +56,64 @@ export function clearClientSession(): void {
   notifyAuthChanged();
 }
 
-async function readErrorMessage(res: Response): Promise<string> {
-  try {
-    const ct = res.headers.get("content-type") ?? "";
-    if (ct.includes("application/json")) {
-      const data: unknown = await res.json();
-      if (
-        data &&
-        typeof data === "object" &&
-        "error" in data &&
-        typeof (data as { error: unknown }).error === "string"
-      ) {
-        return (data as { error: string }).error;
-      }
-    } else {
-      const text = await res.text();
-      if (text) return text.slice(0, 200);
-    }
-  } catch {
-    /* ignore */
+const AUTH_ROUTE_BASES = new Set<string>([
+  siteConfig.routes.login,
+  siteConfig.routes.signup,
+  siteConfig.routes.forgotPassword,
+  siteConfig.routes.resetPassword,
+]);
+
+/** Same-origin return path only (leading slash, no scheme). */
+export function buildLoginUrlWithNext(returnPath: string): string {
+  let path = returnPath.trim() || "/";
+  if (!path.startsWith("/")) path = `/${path}`;
+  if (path.startsWith("//")) path = "/";
+  return `${siteConfig.routes.login}?next=${encodeURIComponent(path)}`;
+}
+
+/**
+ * If the API responds 401: clear client session only. `RequireAuth` performs a single
+ * `location.replace` to login with `next` so we avoid double navigation (assign + router).
+ * Skips when already on auth routes to avoid loops.
+ * @returns true if session was cleared (caller should abort).
+ */
+export function redirectIfUnauthorizedResponse(res: Response): boolean {
+  if (res.status !== 401 || typeof window === "undefined") return false;
+  const pathname = window.location.pathname.split("?")[0] ?? "";
+  if (AUTH_ROUTE_BASES.has(pathname)) return false;
+
+  clearClientSession();
+  return true;
+}
+
+/** Call after authenticated `fetch`; throws if redirect was triggered. */
+export function throwRedirectingIfUnauthorized(res: Response): void {
+  if (redirectIfUnauthorizedResponse(res)) {
+    throw new Error("Unauthorized - redirecting to sign in.");
   }
-  return `Request failed (${res.status})`;
+}
+
+/**
+ * Validates `next` query after login/signup - same-origin paths only (no protocol-relative).
+ */
+export function getSafePostLoginPath(nextRaw: string | null | undefined): string {
+  const fallback = siteConfig.routes.dashboard;
+  if (nextRaw == null || String(nextRaw).trim() === "") return fallback;
+
+  let path: string;
+  try {
+    path = decodeURIComponent(String(nextRaw).trim());
+  } catch {
+    return fallback;
+  }
+
+  path = path.split("#")[0] ?? path;
+  if (!path.startsWith("/") || path.startsWith("//")) return fallback;
+
+  const baseOnly = path.split("?")[0] ?? path;
+  if (AUTH_ROUTE_BASES.has(baseOnly)) return fallback;
+
+  return path || fallback;
 }
 
 export type LoginResult = {
@@ -96,16 +135,25 @@ export async function apiLogin(
   });
 
   if (!res.ok) {
-    throw new Error(await readErrorMessage(res));
+    throw new Error(await readApiErrorMessage(res));
   }
 
+  const body = (await res.json()) as {
+    id?: string;
+    email?: string;
+    accessToken?: string;
+  };
+
   const auth = res.headers.get("Authorization");
-  const accessToken = auth?.startsWith("Bearer ")
+  const fromHeader = auth?.startsWith("Bearer ")
     ? auth.slice("Bearer ".length).trim()
     : null;
+  const accessToken =
+    (typeof body.accessToken === "string" && body.accessToken.trim()
+      ? body.accessToken.trim()
+      : null) ?? fromHeader;
   if (accessToken) setStoredAccessToken(accessToken);
 
-  const body = (await res.json()) as { id?: string; email?: string };
   const id = body.id ?? "";
   const emailOut = body.email ?? "";
   setStoredUser({ id, email: emailOut });
@@ -138,7 +186,7 @@ export async function apiRegister(payload: {
   });
 
   if (!res.ok) {
-    throw new Error(await readErrorMessage(res));
+    throw new Error(await readApiErrorMessage(res));
   }
 
   const body = (await res.json()) as { message?: string };
@@ -159,7 +207,7 @@ export async function apiForgotPassword(
   });
 
   if (!res.ok) {
-    throw new Error(await readErrorMessage(res));
+    throw new Error(await readApiErrorMessage(res));
   }
 
   const body = (await res.json()) as { message?: string };
@@ -176,9 +224,15 @@ export async function apiResetPassword(payload: {
   new_password: string;
   new_password_confirm: string;
 }): Promise<{ ok: true; message: string }> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  const access = getStoredAccessToken();
+  if (access) headers.Authorization = `Bearer ${access}`;
+
   const res = await fetch(`${API_BASE_URL}/api/auth/reset-password`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify({
       token: payload.token.trim(),
       new_password: payload.new_password,
@@ -188,7 +242,7 @@ export async function apiResetPassword(payload: {
   });
 
   if (!res.ok) {
-    throw new Error(await readErrorMessage(res));
+    throw new Error(await readApiErrorMessage(res));
   }
 
   const body = (await res.json()) as { message?: string };
@@ -198,6 +252,12 @@ export async function apiResetPassword(payload: {
   };
 }
 
+/**
+ * Refresh endpoint expects a refresh token in the JSON body; the login cookie is
+ * httpOnly at path `/api/auth`, so the browser cannot read it to call this from
+ * client JS. Prefer JWT `exp` handling in RequireAuth + 401 session clear until
+ * the backend exposes cookie-only refresh or returns refresh in a client-readable way.
+ */
 export async function apiRefresh(refreshToken: string): Promise<{
   access_token: string;
   refresh_token: string;
@@ -210,7 +270,7 @@ export async function apiRefresh(refreshToken: string): Promise<{
   });
 
   if (!res.ok) {
-    throw new Error(await readErrorMessage(res));
+    throw new Error(await readApiErrorMessage(res));
   }
 
   const body = (await res.json()) as {
@@ -245,7 +305,7 @@ export async function apiLogout(): Promise<void> {
   });
 
   if (!res.ok) {
-    const msg = await readErrorMessage(res);
+    const msg = await readApiErrorMessage(res);
     // If refresh cookie was never set (wrong path / old sessions), still sign out locally.
     if (
       res.status === 400 &&

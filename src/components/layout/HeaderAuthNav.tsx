@@ -27,7 +27,7 @@ export function HeaderAuthNav() {
         href={siteConfig.routes.dashboard}
         className="hidden text-sm text-white/85 transition hover:text-foreground sm:inline"
       >
-        Dashboard
+        Open app
       </Link>
     );
   }

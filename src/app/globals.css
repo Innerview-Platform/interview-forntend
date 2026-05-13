@@ -1,15 +1,24 @@
 @import "tailwindcss";
 
 :root {
-  --bg-deep: #0b0815;
-  --bg-mid: #1a142e;
-  --accent: #c084fc;
-  --accent-strong: #a855f7;
-  --accent-violet: #7c3aed;
-  --muted: #94a3b8;
-  --glass-bg: rgba(255, 255, 255, 0.05);
-  --glass-border: rgba(255, 255, 255, 0.1);
-  --foreground: #ffffff;
+  --bg-deep: #060912;
+  --bg-mid: #0e1424;
+  --surface: #111827;
+  --surface-soft: #172033;
+  --surface-muted: #1f2937;
+  --accent: #8b5cf6;
+  --accent-strong: #7c3aed;
+  --accent-violet: #6366f1;
+  --accent-soft: #c084fc;
+  --success: #34d399;
+  --warning: #f59e0b;
+  --danger: #fb7185;
+  --info: #a78bfa;
+  --muted: #9ca3af;
+  --muted-strong: #cbd5e1;
+  --glass-bg: rgba(15, 23, 42, 0.72);
+  --glass-border: rgba(148, 163, 184, 0.18);
+  --foreground: #f8fafc;
   --background: var(--bg-deep);
 }
 
@@ -19,13 +28,120 @@
   --color-accent: var(--accent);
   --color-accent-strong: var(--accent-strong);
   --color-accent-violet: var(--accent-violet);
+  --color-accent-soft: var(--accent-soft);
+  --color-surface: var(--surface);
+  --color-surface-soft: var(--surface-soft);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-info: var(--info);
   --color-muted: var(--muted);
+  --color-muted-strong: var(--muted-strong);
+  --color-glass-bg: var(--glass-bg);
+  --color-glass-border: var(--glass-border);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
+
+@keyframes iv-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-12px);
+  }
+}
+
+@keyframes iv-glow-shift {
+  0% {
+    opacity: 0.5;
+    transform: rotate(12deg) scale(1);
+  }
+  100% {
+    opacity: 0.85;
+    transform: rotate(12deg) scale(1.05);
+  }
 }
 
 body {
   background: var(--bg-deep);
   color: var(--foreground);
   font-family: var(--font-sans);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .iv-animate-float {
+    animation: iv-float 8s ease-in-out infinite;
+  }
+  .iv-animate-float-delayed {
+    animation: iv-float 9.5s ease-in-out infinite;
+    animation-delay: -2s;
+  }
+  .iv-animate-glow {
+    animation: iv-glow-shift 12s ease-in-out infinite alternate;
+  }
+}
+
+::selection {
+  background: rgba(139, 92, 246, 0.45);
+  color: white;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+select {
+  color-scheme: dark;
+}
+
+/* Modern scrollbars (Firefox + WebKit) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--accent) 55%, transparent) rgba(15, 23, 42, 0.55);
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.35);
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--accent) 70%, white 10%),
+    color-mix(in srgb, var(--accent-violet) 55%, transparent)
+  );
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--accent-soft) 75%, white 5%),
+    color-mix(in srgb, var(--accent) 60%, transparent)
+  );
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *::-webkit-scrollbar-thumb {
+    transition: none;
+  }
 }
